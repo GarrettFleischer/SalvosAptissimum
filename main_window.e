@@ -8,6 +8,7 @@ class
 	MAIN_WINDOW
 
 inherit
+
 	EV_TITLED_WINDOW
 		redefine
 			create_interface_objects,
@@ -19,7 +20,8 @@ inherit
 		export
 			{NONE} all
 		undefine
-			default_create, copy
+			default_create,
+			copy
 		end
 
 create
@@ -38,8 +40,12 @@ feature {NONE} -- Initialization
 
 				-- Create a status bar and a status label.
 			create standard_status_bar
-			create standard_status_label.make_with_text ("Add your status text here...")
+			create standard_status_label.make_with_text ("No connection...")
 
+				-- Create primitives
+			create prim_log
+			create prim_command
+			create prim_map
 		end
 
 	initialize
@@ -55,7 +61,6 @@ feature {NONE} -- Initialization
 				-- Create and add the status bar.
 			build_standard_status_bar
 			lower_bar.extend (standard_status_bar)
-
 			build_main_container
 			extend (main_container)
 
@@ -74,11 +79,8 @@ feature {NONE} -- Initialization
 			-- Is the window in its default state?
 			-- (as stated in `initialize')
 		do
-			Result := (width = Window_width) and then
-				(height = Window_height) and then
-				(title.is_equal (Window_title))
+			Result := (width = Window_width) and then (height = Window_height) and then (title.is_equal (Window_title))
 		end
-
 
 feature {NONE} -- ToolBar Implementation
 
@@ -97,13 +99,11 @@ feature {NONE} -- ToolBar Implementation
 			toolbar_pixmap.set_with_named_file ("Images/new.png")
 			toolbar_item.set_pixmap (toolbar_pixmap)
 			standard_toolbar.extend (toolbar_item)
-
 			create toolbar_item
 			create toolbar_pixmap
 			toolbar_pixmap.set_with_named_file ("Images/open.png")
 			toolbar_item.set_pixmap (toolbar_pixmap)
 			standard_toolbar.extend (toolbar_item)
-
 			create toolbar_item
 			create toolbar_pixmap
 			toolbar_pixmap.set_with_named_file ("Images/save.png")
@@ -155,7 +155,6 @@ feature {NONE} -- Implementation, Close event
 		do
 			create question_dialog.make_with_text (Label_confirm_close_window)
 			question_dialog.show_modal_to_window (Current)
-
 			if question_dialog.selected_button ~ (create {EV_DIALOG_CONSTANTS}).ev_ok then
 					-- Destroy the window.
 				destroy
@@ -171,16 +170,72 @@ feature {NONE} -- Implementation, Close event
 
 feature {NONE} -- Implementation
 
-	main_container: EV_VERTICAL_BOX
+	main_container: EV_HORIZONTAL_BOX
 			-- Main container (contains all widgets displayed in this window).
+
+	prim_log: EV_RICH_TEXT
+			-- Log window
+
+	prim_command: EV_TEXT_FIELD
+			-- Command text box
+
+	prim_map: EV_RICH_TEXT
+			-- Map window
 
 	build_main_container
 			-- Populate `main_container'.
+		local
+			log_command_container: EV_VERTICAL_BOX
+			map_container: EV_VERTICAL_BOX
+			prim_hsep: EV_HORIZONTAL_SEPARATOR
 		do
-			main_container.extend (create {EV_TEXT})
+				-- Create locals
+			create log_command_container
+			create map_container
+			create prim_hsep
+
+				-- Dissallow editing in prim_log & prim_map
+			prim_log.disable_edit
+			prim_map.disable_edit
+
+				-- Set min size on prim_map
+			prim_map.set_minimum_size (200, 150)
+
+				-- Add prim_log & prim_command to log_command_container
+			log_command_container.extend (prim_log)
+			log_command_container.extend (prim_hsep)
+			log_command_container.extend (prim_command)
+			log_command_container.disable_item_expand (prim_hsep)
+			log_command_container.disable_item_expand (prim_command)
+
+				-- Add prim_map to map_container
+			map_container.extend (prim_map)
+			map_container.disable_item_expand (prim_map)
+
+				-- Add containers to main_container
+			main_container.extend (log_command_container)
+			main_container.extend (map_container)
+
+			main_container.disable_item_expand (map_container)
+
 		ensure
-			main_container_created: main_container /= Void
+			main_container_has_log: main_container.has_recursive (prim_log)
+			main_container_has_command: main_container.has_recursive (prim_command)
+			main_container_has_map: main_container.has_recursive (prim_map)
 		end
+
+
+	log_message (msg: READABLE_STRING_GENERAL)
+			-- Append message to prim_log
+		do
+			if (not prim_log.text.is_empty) then
+				prim_log.append_text ("%N")
+			end
+			prim_log.append_text (msg)
+		ensure
+			prim_log.text.has_substring (msg)
+		end
+
 
 feature {NONE} -- Implementation / Constants
 
