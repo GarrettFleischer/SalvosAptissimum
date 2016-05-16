@@ -183,23 +183,25 @@ feature {NONE} -- Implementation
 			-- Map window
 
 	build_main_container
-			-- Populate `main_container'.
+			-- Populate main_container.
 		local
 			log_command_container: EV_VERTICAL_BOX
 			map_container: EV_VERTICAL_BOX
 			prim_hsep: EV_HORIZONTAL_SEPARATOR
+			prim_vsep: EV_VERTICAL_SEPARATOR
 		do
 				-- Create locals
 			create log_command_container
 			create map_container
 			create prim_hsep
+			create prim_vsep
 
 				-- Dissallow editing in prim_log & prim_map
 			prim_log.disable_edit
 			prim_map.disable_edit
 
 				-- Set min size on prim_map
-			prim_map.set_minimum_size (200, 150)
+			prim_map.set_minimum_size (250, 200)
 
 				-- Add prim_log & prim_command to log_command_container
 			log_command_container.extend (prim_log)
@@ -214,16 +216,23 @@ feature {NONE} -- Implementation
 
 				-- Add containers to main_container
 			main_container.extend (log_command_container)
+			main_container.extend (prim_vsep)
 			main_container.extend (map_container)
-
+			main_container.disable_item_expand (prim_vsep)
 			main_container.disable_item_expand (map_container)
 
+				-- Set minimum size of main_container
+			main_container.set_minimum_size (640, 480)
+
+				-- Testing...
+			log_message ("Test 1")
+			log_message ("Test 2")
+			log_message ("Test 3")
 		ensure
 			main_container_has_log: main_container.has_recursive (prim_log)
 			main_container_has_command: main_container.has_recursive (prim_command)
 			main_container_has_map: main_container.has_recursive (prim_map)
 		end
-
 
 	log_message (msg: READABLE_STRING_GENERAL)
 			-- Append message to prim_log
@@ -235,7 +244,6 @@ feature {NONE} -- Implementation
 		ensure
 			prim_log.text.has_substring (msg)
 		end
-
 
 feature {NONE} -- Implementation / Constants
 
