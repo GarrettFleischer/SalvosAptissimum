@@ -25,6 +25,6 @@ feature -- Basic operations
 		end
 
 invariant
-	hunger_valid: hunger >= 0
+	hunger_valid: hunger >= 0 and hunger <= 100
 
 end
