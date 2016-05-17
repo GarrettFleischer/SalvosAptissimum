@@ -13,7 +13,14 @@ inherit
 feature -- Access
 
 	name: STRING
-	diet: DIET
+	hunger: INTEGER
+
+feature -- Actions
+
+	eat (food: FOOD)
+	do
+
+	end
 
 invariant
 	name_valid: not name.is_empty

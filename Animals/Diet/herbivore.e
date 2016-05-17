@@ -8,7 +8,7 @@ class
 	HERBIVORE
 
 inherit
-	DIET
+	ANIMAL
 		redefine
 			eat
 	end
@@ -21,6 +21,7 @@ feature {NONE} -- Initialization
 	make
 			-- Initialization for `Current'.
 		do
+			name := ""
 			hunger := 100
 		end
 
