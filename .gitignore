@@ -1,3 +1,5 @@
 # Compilation folder
 EIFGENs/
 
+*.tmp
+Documentation/~$oposal_Eiffel.docx
