@@ -42,7 +42,7 @@ feature {NONE} -- Constants
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-feature {NONE} -- Widgets
+feature {NONE} -- Members
 
 	main_container: EV_HORIZONTAL_BOX
 			-- Main container (contains all widgets displayed in this window).
