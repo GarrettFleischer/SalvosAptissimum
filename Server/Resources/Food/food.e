@@ -8,6 +8,7 @@ deferred class
 	FOOD
 
 inherit
+
 	ANY
 
 feature -- Access

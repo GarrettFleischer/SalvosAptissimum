@@ -8,6 +8,7 @@ class
 	CARROT
 
 inherit
+
 	VEGETABLE
 
 create

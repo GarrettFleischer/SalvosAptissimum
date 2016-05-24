@@ -27,8 +27,7 @@ inherit
 create
 	default_create
 
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Constants
 
@@ -40,7 +39,6 @@ feature {NONE} -- Constants
 
 	Window_height: INTEGER = 720
 			-- Initial height for this window.
-
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -58,7 +56,7 @@ feature {NONE} -- Widgets
 	map_window: EV_RICH_TEXT
 			-- Map window
 
-	-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Initialization
 
@@ -307,10 +305,22 @@ feature {NONE} -- Implementation
 			main_container.disable_item_expand (vsep_log_map)
 			main_container.disable_item_expand (map_container)
 
+				-- Connect agents
+			command_window.key_press_actions.extend (agent command_key_pressed)
 		ensure
 			main_container_has_log: main_container.has_recursive (log_window)
 			main_container_has_command: main_container.has_recursive (command_window)
 			main_container_has_map: main_container.has_recursive (map_window)
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	command_key_pressed (key: EV_KEY)
+		do
+			if key.code = {EV_KEY_CONSTANTS}.key_enter then
+				log_message (command_window.text)
+				command_window.set_text ("")
+			end
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -325,7 +335,5 @@ feature {NONE} -- Implementation
 		ensure
 			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
 		end
-
-
 
 end

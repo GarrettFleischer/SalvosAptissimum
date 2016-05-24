@@ -8,6 +8,7 @@ deferred class
 	VEGETABLE
 
 inherit
+
 	FOOD
 
 end

@@ -8,10 +8,11 @@ class
 	HERBIVORE
 
 inherit
+
 	ANIMAL
 		redefine
 			eat
-	end
+		end
 
 create
 	make
@@ -28,19 +29,18 @@ feature {NONE} -- Initialization
 feature -- Basic operations
 
 	eat (food: FOOD)
-	do
-			-- Ensure that the food is a vegetable, else get sick
-		if (attached {VEGETABLE} food) then
-			hunger := hunger + 10
-		else
-			hunger := hunger - 50
+		do
+				-- Ensure that the food is a vegetable, else get sick
+			if (attached {VEGETABLE} food) then
+				hunger := hunger + 10
+			else
+				hunger := hunger - 50
+			end
+			if (hunger < 0) then
+				hunger := 0
+			elseif (hunger > 100) then
+				hunger := 100
+			end
 		end
-
-		if (hunger < 0) then
-			hunger := 0
-		elseif (hunger > 100) then
-			hunger := 100
-		end
-	end
 
 end

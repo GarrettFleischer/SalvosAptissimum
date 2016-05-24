@@ -8,19 +8,20 @@ deferred class
 	ANIMAL
 
 inherit
+
 	ANY
 
 feature -- Access
 
 	name: STRING
+
 	hunger: INTEGER
 
 feature -- Actions
 
 	eat (food: FOOD)
-	do
-
-	end
+		do
+		end
 
 invariant
 	name_valid: not name.is_empty
