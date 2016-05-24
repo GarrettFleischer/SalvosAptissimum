@@ -27,6 +27,39 @@ inherit
 create
 	default_create
 
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+feature {NONE} -- Constants
+
+	Window_title: STRING = "Salvos Aptissimum Server"
+			-- Title of the window.
+
+	Window_width: INTEGER = 1280
+			-- Initial width for this window.
+
+	Window_height: INTEGER = 720
+			-- Initial height for this window.
+
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+feature {NONE} -- Widgets
+
+	main_container: EV_HORIZONTAL_BOX
+			-- Main container (contains all widgets displayed in this window).
+
+	log_window: EV_RICH_TEXT
+			-- Log window
+
+	command_window: EV_TEXT_FIELD
+			-- Command text box
+
+	map_window: EV_RICH_TEXT
+			-- Map window
+
+	-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 feature {NONE} -- Initialization
 
 	create_interface_objects
@@ -49,6 +82,8 @@ feature {NONE} -- Initialization
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
 		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	initialize
 			-- Build the interface for this window.
@@ -76,6 +111,8 @@ feature {NONE} -- Initialization
 			set_size (Window_width, Window_height)
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 	is_in_default_state: BOOLEAN
 			-- Is the window in its default state?
 			-- (as stated in `initialize')
@@ -83,16 +120,24 @@ feature {NONE} -- Initialization
 			Result := (width = Window_width) and then (height = Window_height) and then (title.is_equal (Window_title))
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 feature {NONE} -- Menu Implementation
 
 	standard_menu_bar: EV_MENU_BAR
 			-- Standard menu bar for this window.
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 	file_menu: EV_MENU
 			-- "File" menu for this window (contains New, Open, Close, Exit...)
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 	help_menu: EV_MENU
 			-- "Help" menu for this window (contains About...)
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	build_standard_menu_bar
 			-- Create and populate `standard_menu_bar'.
@@ -106,6 +151,8 @@ feature {NONE} -- Menu Implementation
 		ensure
 			menu_bar_initialized: not standard_menu_bar.is_empty
 		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	build_file_menu
 			-- Create and populate `file_menu'.
@@ -138,6 +185,8 @@ feature {NONE} -- Menu Implementation
 			file_menu_initialized: not file_menu.is_empty
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 	build_help_menu
 			-- Create and populate `help_menu'.
 		local
@@ -152,6 +201,8 @@ feature {NONE} -- Menu Implementation
 		ensure
 			help_menu_initialized: not help_menu.is_empty
 		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- StatusBar Implementation
 
@@ -175,6 +226,8 @@ feature {NONE} -- StatusBar Implementation
 			standard_status_bar.extend (standard_status_label)
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 feature {NONE} -- About Dialog Implementation
 
 	on_about
@@ -185,6 +238,8 @@ feature {NONE} -- About Dialog Implementation
 			create about_dialog
 			about_dialog.show_modal_to_window (Current)
 		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Implementation, Close event
 
@@ -208,19 +263,9 @@ feature {NONE} -- Implementation, Close event
 			end
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 feature {NONE} -- Implementation
-
-	main_container: EV_HORIZONTAL_BOX
-			-- Main container (contains all widgets displayed in this window).
-
-	log_window: EV_RICH_TEXT
-			-- Log window
-
-	map_window: EV_RICH_TEXT
-		-- Map window
-
-	command_window: EV_TEXT_FIELD
-			-- Command text box
 
 	build_main_container
 			-- Populate `main_container'.
@@ -262,20 +307,25 @@ feature {NONE} -- Implementation
 			main_container.disable_item_expand (vsep_log_map)
 			main_container.disable_item_expand (map_container)
 
-
 		ensure
-			main_container_created: main_container /= Void
+			main_container_has_log: main_container.has_recursive (log_window)
+			main_container_has_command: main_container.has_recursive (command_window)
+			main_container_has_map: main_container.has_recursive (map_window)
 		end
 
-feature {NONE} -- Implementation / Constants
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	Window_title: STRING = "Salvos Aptissimum Server"
-			-- Title of the window.
+	log_message (msg: READABLE_STRING_GENERAL)
+			-- Append message to prim_log
+		do
+			if (not log_window.text.is_empty) then
+				log_window.append_text ("%N")
+			end
+			log_window.append_text (msg)
+		ensure
+			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
+		end
 
-	Window_width: INTEGER = 1280
-			-- Initial width for this window.
 
-	Window_height: INTEGER = 720
-			-- Initial height for this window.
 
 end
