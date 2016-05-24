@@ -1,8 +1,8 @@
 note
 	description: "Summary description for {ANIMAL}."
 	author: "Garrett Fleischer"
-	date: "5/15/16"
-	revision: "1.0.0"
+	date: "5/24/16"
+	revision: "1.1.0"
 
 deferred class
 	ANIMAL
@@ -14,8 +14,16 @@ inherit
 feature -- Access
 
 	name: STRING
+	
+	health: INTEGER
+
+	stamina: INTEGER
 
 	hunger: INTEGER
+
+	attributes: LIST[ATTRIBUTES]
+
+
 
 feature -- Actions
 

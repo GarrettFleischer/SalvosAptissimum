@@ -23,7 +23,7 @@ feature {NONE} -- Initialization
 			-- Initialization for `Current'.
 		do
 			name := ""
-			hunger := 100
+			hunger := 0
 		end
 
 feature -- Basic operations
@@ -32,14 +32,14 @@ feature -- Basic operations
 		do
 				-- Ensure that the food is a vegetable, else get sick
 			if (attached {VEGETABLE} food) then
-				hunger := hunger + 10
-			else
-				hunger := hunger - 50
+				hunger := hunger - 10
+--			else
+--				hunger := hunger - 50
 			end
 			if (hunger < 0) then
 				hunger := 0
-			elseif (hunger > 100) then
-				hunger := 100
+--			elseif (hunger > 100) then
+--				hunger := 100
 			end
 		end
 
