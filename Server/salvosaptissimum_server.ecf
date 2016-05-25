@@ -16,9 +16,6 @@
 				<exclude>/CVS$</exclude>
 				<exclude>/EIFGENs$</exclude>
 			</file_rule>
-			<file_rule>
-				<exclude>^EIFGENsalkdfjlasdjf$</exclude>
-			</file_rule>
 		</cluster>
 	</target>
 </system>

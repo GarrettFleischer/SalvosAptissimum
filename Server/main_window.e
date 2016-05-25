@@ -203,7 +203,8 @@ feature {NONE} -- Server Implementation
 				if client_socket = Void then
 					log_message ("Failed to accept client...")
 				else
-					create client_thread.make (perform_client_communication (client_socket))
+					create client_thread.make (agent perform_client_communication(client_socket))
+					client_thread.launch
 				end
 			end
 			socket.close
@@ -217,6 +218,7 @@ feature {NONE} -- Server Implementation
 			socket_valid: socket.is_open_read and then socket.is_open_write
 		local
 			done: BOOLEAN
+			message: detachable STRING
 			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
 		do
 			l_address := socket.address
@@ -231,44 +233,44 @@ feature {NONE} -- Server Implementation
 			until
 				done
 			loop
-				done := process_commands (socket)
+				client_socket.read_line
+				message := client_socket.last_string
+				done := process_command (socket)
 			end
-				log_message ("Client disconnected...")
+			log_message ("Client disconnected...")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	process_commands (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
+	process_command (client_socket: NETWORK_STREAM_SOCKET message: detachable STRING): BOOLEAN
 		require
 			socket_attached: client_socket /= Void
 			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
-		local
-			message: detachable STRING
-			done: BOOLEAN
 		do
-		from
-			done := false
-		until
-			done
-		loop
-			client_socket.read_line
-			message := client_socket.last_string
 			if message /= Void then
+					-- Handle OS line ending inconsistencies
 				if message.ends_with ("%R") then
 					message.keep_head (message.count - 1)
 				end
-				log_message ("Client Says :")
-				log_message (message)
+
+					-- Display the message
+				log_message ("Client Says : " + message)
+
+					-- Quit command
 				if message.is_case_insensitive_equal ("quit") then
-					done := true
-				else
+					client_socket.close
+					Result := done
+
+						-- Say command
+				elseif message.starts_with ("say") then
+						-- TODO broadcast message to other clients in the same room
 					send_reply (client_socket, message)
+
+						-- Invalid command
+				else
+					send_reply (client_socket, "Invalid command")
 				end
 			end
-		end
-
-			client_socket.close
-			Result := True
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -476,7 +478,7 @@ feature {NONE} -- Implementation
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	log_message (msg: READABLE_STRING_GENERAL)
+	log_message (msg: READABLE_STRING_32)
 			-- Append message to prim_log
 		require
 			log_exists: log_window /= Void
