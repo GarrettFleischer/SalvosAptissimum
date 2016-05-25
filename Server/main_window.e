@@ -24,8 +24,17 @@ inherit
 			copy
 		end
 
+	INET_PROPERTIES
+		undefine
+			default_create,
+			copy
+		end
+
 create
 	default_create
+
+create
+	make
 
 	-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -44,6 +53,15 @@ feature {NONE} -- Constants
 
 feature {NONE} -- Members
 
+	standard_menu_bar: EV_MENU_BAR
+			-- Standard menu bar for this window.
+
+	file_menu: EV_MENU
+			-- "File" menu for this window (contains New, Open, Close, Exit...)
+
+	help_menu: EV_MENU
+			-- "Help" menu for this window (contains About...)
+
 	main_container: EV_HORIZONTAL_BOX
 			-- Main container (contains all widgets displayed in this window).
 
@@ -59,6 +77,50 @@ feature {NONE} -- Members
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Initialization
+
+		--	default_create
+		--		do
+		--			Precursor {EV_TITLED_WINDOW}
+		--			make (12111, false, 0)
+		--		end
+
+	make (port: INTEGER prefer_ipv4_stack: BOOLEAN accept_timeout: INTEGER max_connections: INTEGER)
+		local
+			listen_socket: NETWORK_STREAM_SOCKET
+			l_address: detachable NETWORK_SOCKET_ADDRESS
+			server_thread: WORKER_THREAD
+		do
+				-- Setup Window
+			default_create
+
+				-- Setup Server
+			if prefer_ipv4_stack then
+				set_ipv4_stack_preferred (True)
+			end
+
+				-- Create the Server socket
+			log_message ("Create socket")
+			create listen_socket.make_server_by_port (port)
+			if not listen_socket.is_bound then
+				log_message ("Unable bind to port " + port.out)
+			else
+				l_address := listen_socket.address
+				check
+					l_address_attached: l_address /= Void
+				end
+				listen_socket.listen (max_connections)
+					-- Set the accept timeout
+				listen_socket.set_accept_timeout (accept_timeout)
+
+					-- launch server thread
+				log_message ("Launching server thread")
+				create server_thread.make (agent perform_accept_serve_loop(listen_socket))
+				server_thread.launch
+			end
+				--			listen_socket.close
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	create_interface_objects
 			-- <Precursor>
@@ -120,22 +182,109 @@ feature {NONE} -- Initialization
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+feature {NONE} -- Server Implementation
+
+	perform_accept_serve_loop (socket: NETWORK_STREAM_SOCKET)
+		require
+			valid_socket: socket /= Void and then socket.is_bound
+		local
+			done: BOOLEAN
+			client_socket: detachable NETWORK_STREAM_SOCKET
+			client_thread: WORKER_THREAD
+		do
+			from
+				done := False
+			until
+				done
+			loop
+				log_message ("Waiting...")
+				socket.accept
+				client_socket := socket.accepted
+				if client_socket = Void then
+					log_message ("Failed to accept client...")
+				else
+					create client_thread.make (perform_client_communication (client_socket))
+				end
+			end
+			socket.close
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	perform_client_communication (socket: NETWORK_STREAM_SOCKET)
+		require
+			socket_attached: socket /= Void
+			socket_valid: socket.is_open_read and then socket.is_open_write
+		local
+			done: BOOLEAN
+			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
+		do
+			l_address := socket.address
+			l_peer_address := socket.peer_address
+			check
+				l_address_attached: l_address /= Void
+				l_peer_address_attached: l_peer_address /= Void
+			end
+			log_message ("Accepted client")
+			from
+				done := False
+			until
+				done
+			loop
+				done := process_commands (socket)
+			end
+				log_message ("Client disconnected...")
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	process_commands (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
+		require
+			socket_attached: client_socket /= Void
+			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
+		local
+			message: detachable STRING
+			done: BOOLEAN
+		do
+		from
+			done := false
+		until
+			done
+		loop
+			client_socket.read_line
+			message := client_socket.last_string
+			if message /= Void then
+				if message.ends_with ("%R") then
+					message.keep_head (message.count - 1)
+				end
+				log_message ("Client Says :")
+				log_message (message)
+				if message.is_case_insensitive_equal ("quit") then
+					done := true
+				else
+					send_reply (client_socket, message)
+				end
+			end
+		end
+
+			client_socket.close
+			Result := True
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	send_reply (client_socket: NETWORK_STREAM_SOCKET; message: STRING)
+		require
+			socket_attached: client_socket /= Void
+			socket_valid: client_socket.is_open_write
+			message_attached: message /= Void
+		do
+			client_socket.put_string (message + "%N")
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 feature {NONE} -- Menu Implementation
-
-	standard_menu_bar: EV_MENU_BAR
-			-- Standard menu bar for this window.
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	file_menu: EV_MENU
-			-- "File" menu for this window (contains New, Open, Close, Exit...)
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	help_menu: EV_MENU
-			-- "Help" menu for this window (contains About...)
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	build_standard_menu_bar
 			-- Create and populate `standard_menu_bar'.
@@ -320,20 +469,24 @@ feature {NONE} -- Implementation
 			if key.code = {EV_KEY_CONSTANTS}.key_enter then
 				log_message (command_window.text)
 				command_window.set_text ("")
+					-- TODO add command to command history
 			end
+				-- TODO handle Up/Down key presses.
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	log_message (msg: READABLE_STRING_GENERAL)
 			-- Append message to prim_log
+		require
+			log_exists: log_window /= Void
 		do
 			if (not log_window.text.is_empty) then
 				log_window.append_text ("%N")
 			end
 			log_window.append_text (msg)
 		ensure
-			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
+			text_appended: log_window.text.ends_with (msg)
 		end
 
 end
