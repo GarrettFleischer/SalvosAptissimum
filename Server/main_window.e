@@ -30,8 +30,8 @@ inherit
 			copy
 		end
 
-create
-	default_create
+	create
+		default_create
 
 create
 	make
@@ -84,7 +84,7 @@ feature {NONE} -- Initialization
 		--			make (12111, false, 0)
 		--		end
 
-	make (port: INTEGER prefer_ipv4_stack: BOOLEAN accept_timeout: INTEGER max_connections: INTEGER)
+	make (port: INTEGER prefer_ipv4_stack: BOOLEAN accept_timeout: INTEGER)
 		local
 			listen_socket: NETWORK_STREAM_SOCKET
 			l_address: detachable NETWORK_SOCKET_ADDRESS
@@ -99,7 +99,7 @@ feature {NONE} -- Initialization
 			end
 
 				-- Create the Server socket
-			log_message ("Create socket")
+				log_message ("Create socket")
 			create listen_socket.make_server_by_port (port)
 			if not listen_socket.is_bound then
 				log_message ("Unable bind to port " + port.out)
@@ -108,16 +108,16 @@ feature {NONE} -- Initialization
 				check
 					l_address_attached: l_address /= Void
 				end
-				listen_socket.listen (max_connections)
+				listen_socket.listen (200)
 					-- Set the accept timeout
 				listen_socket.set_accept_timeout (accept_timeout)
 
 					-- launch server thread
 				log_message ("Launching server thread")
-				create server_thread.make (agent perform_accept_serve_loop(listen_socket))
+				create server_thread.make (agent perform_accept_serve_loop (listen_socket))
 				server_thread.launch
 			end
-				--			listen_socket.close
+--			listen_socket.close
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -192,6 +192,7 @@ feature {NONE} -- Server Implementation
 			client_socket: detachable NETWORK_STREAM_SOCKET
 			client_thread: WORKER_THREAD
 		do
+
 			from
 				done := False
 			until
@@ -201,12 +202,16 @@ feature {NONE} -- Server Implementation
 				socket.accept
 				client_socket := socket.accepted
 				if client_socket = Void then
-					log_message ("Failed to accept client...")
+						-- Some error occurred, perhaps because of the timeout
+						-- We probably should provide some diagnostics here
+					log_message ("accept result = Void")
 				else
-					create client_thread.make (agent perform_client_communication(client_socket))
-					client_thread.launch
+					log_message ("Accepted")
+
+					create client_thread.make (agent perform_client_communication (client_socket))
 				end
 			end
+
 			socket.close
 		end
 
@@ -218,7 +223,6 @@ feature {NONE} -- Server Implementation
 			socket_valid: socket.is_open_read and then socket.is_open_write
 		local
 			done: BOOLEAN
-			message: detachable STRING
 			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
 		do
 			l_address := socket.address
@@ -227,48 +231,42 @@ feature {NONE} -- Server Implementation
 				l_address_attached: l_address /= Void
 				l_peer_address_attached: l_peer_address /= Void
 			end
-			log_message ("Accepted client")
+				--			log_message ("Accepted client on the listen socket address = "+ l_address.host_address.host_address + " port = " + l_address.port.out +".")
+
+				--			log_message ("%T Accepted client address = " + l_peer_address.host_address.host_address + " , port = " + l_peer_address.port.out)
+
 			from
 				done := False
 			until
 				done
 			loop
-				client_socket.read_line
-				message := client_socket.last_string
-				done := process_command (socket)
+				done := receive_message_and_send_replay (socket)
 			end
-			log_message ("Client disconnected...")
+				--			log_message ("Finished processing the client, address = "+ l_peer_address.host_address.host_address + " port = " + l_peer_address.port.out + ".")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	process_command (client_socket: NETWORK_STREAM_SOCKET message: detachable STRING): BOOLEAN
+	receive_message_and_send_replay (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
 		require
 			socket_attached: client_socket /= Void
 			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
+		local
+			message: detachable STRING
 		do
+			client_socket.read_line
+			message := client_socket.last_string
 			if message /= Void then
-					-- Handle OS line ending inconsistencies
 				if message.ends_with ("%R") then
 					message.keep_head (message.count - 1)
 				end
-
-					-- Display the message
-				log_message ("Client Says : " + message)
-
-					-- Quit command
+				log_message ("Client Says :")
+				log_message (message)
 				if message.is_case_insensitive_equal ("quit") then
+					Result := True
 					client_socket.close
-					Result := done
-
-						-- Say command
-				elseif message.starts_with ("say") then
-						-- TODO broadcast message to other clients in the same room
-					send_reply (client_socket, message)
-
-						-- Invalid command
 				else
-					send_reply (client_socket, "Invalid command")
+					send_reply (client_socket, message)
 				end
 			end
 		end
@@ -471,14 +469,12 @@ feature {NONE} -- Implementation
 			if key.code = {EV_KEY_CONSTANTS}.key_enter then
 				log_message (command_window.text)
 				command_window.set_text ("")
-					-- TODO add command to command history
 			end
-				-- TODO handle Up/Down key presses.
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	log_message (msg: READABLE_STRING_32)
+	log_message (msg: READABLE_STRING_GENERAL)
 			-- Append message to prim_log
 		require
 			log_exists: log_window /= Void
@@ -488,7 +484,7 @@ feature {NONE} -- Implementation
 			end
 			log_window.append_text (msg)
 		ensure
-			text_appended: log_window.text.ends_with (msg)
+			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
 		end
 
 end

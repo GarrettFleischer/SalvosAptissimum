@@ -22,10 +22,16 @@ feature {NONE} -- Initialization
 		end
 
 	prepare
+			-- Prepare the first window to be displayed.
+			-- Perform one call to first window in order to
+			-- avoid to violate the invariant of class EV_APPLICATION.
 		do
 				-- create and initialize the first window.
-			create first_window.make (1211, true, 0, 100)
+			create first_window.make (1211, true, 0)
 
+				-- Show the first window.
+				--| TODO: Remove this line if you don't want the first
+				--|       window to be shown at the start of the program.
 			first_window.show
 		end
 
