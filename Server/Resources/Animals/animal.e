@@ -24,7 +24,7 @@ feature{ANIMAL} -- Access
 
 	stamina: INTEGER
 
-	hunger: INTEGER 
+	hunger: INTEGER
 
 --	attributes: LIST[ATTRIBUTES]
 
@@ -42,7 +42,7 @@ feature {NONE} -- Initialization
 		end
 
 feature -- Actions
-	getHealth(): INTEGER
+	getHealth : INTEGER
 		do
 			RESULT := health
 		end
@@ -51,7 +51,7 @@ feature -- Actions
 		do
 			health := hp
 		end
-	getStamina(): INTEGER
+	getStamina : INTEGER
 		do
 			RESULT := stamina
 		end
@@ -59,7 +59,7 @@ feature -- Actions
 		do
 			stamina := stam
 		end
-	getHunger(): INTEGER
+	getHunger : INTEGER
 		do
 			RESULT := hunger
 		end

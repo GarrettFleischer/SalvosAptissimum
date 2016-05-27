@@ -74,6 +74,8 @@ feature {NONE} -- Members
 	map_window: EV_RICH_TEXT
 			-- Map window
 
+	client_list: ARRAYED_LIST[ANIMAL]
+
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Initialization
@@ -141,6 +143,8 @@ feature {NONE} -- Initialization
 				-- Create a status bar and a status label.
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
+
+			create client_list.make (200)
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
