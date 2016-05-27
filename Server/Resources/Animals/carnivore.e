@@ -16,13 +16,14 @@ inherit
 create
 	make
 feature {NONE}
-	make
+	make(sock: detachable NETWORK_STREAM_SOCKET)
 		do
-			animake
+			animake(sock)
+			name:= "Fox"
+			movement_cost := 6
 		end
 
-feature {NONE}
-
+feature {ANY}
 	eat (food: FOOD)
 		do
 			if (attached {ANIMAL} food as meat) then
@@ -31,10 +32,13 @@ feature {NONE}
 				else
 					hunger := hunger - 50
 				end
+
 			end
 			if (hunger < 0) then
 				stamina := stamina - 10
+
 			end
 		end
+	end
 
-end
+
