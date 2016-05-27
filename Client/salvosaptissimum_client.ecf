@@ -1,18 +1,20 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-13-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-13-0 http://www.eiffel.com/developers/xml/configuration-1-13-0.xsd" name="SalvosAptissimum_Client" uuid="4AA38643-99EB-442A-B39C-D452F05347AB">
-	<target name="SalvosAptissimum_Client">
-		<root cluster="root_cluster" feature="make_and_launch" class="APPLICATION"/>
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-15-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-15-0 http://www.eiffel.com/developers/xml/configuration-1-15-0.xsd" name="salvosaptissimum_server" uuid="370A8DAA-B9A5-4BE5-B72E-A3DEF0395E16">
+	<target name="salvosaptissimum_server">
+		<root cluster="root_cluster" class="APPLICATION" feature="make_and_launch"/>
 		<option warning="true">
 			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
 		</option>
-		<precompile name="vision2_pre" location="$ISE_PRECOMP/vision2-safe.ecf"/>
-		<library name="base" location="$ISE_LIBRARY/library/base/base-safe.ecf"/>
-		<library name="vision2" location="$ISE_LIBRARY/library/vision2/vision2-safe.ecf"/>
+		<setting name="concurrency" value="thread"/>
+		<library name="base" location="$ISE_LIBRARY\library\base\base-safe.ecf"/>
+		<library name="net" location="$ISE_LIBRARY\library\net\net-safe.ecf"/>
+		<library name="thread" location="$ISE_LIBRARY\library\thread\thread-safe.ecf"/>
+		<library name="vision2" location="$ISE_LIBRARY\library\vision2\vision2-safe.ecf"/>
 		<cluster name="root_cluster" location=".\" recursive="true">
 			<file_rule>
-				<exclude>/EIFGENs$</exclude>
 				<exclude>/.svn$</exclude>
 				<exclude>/CVS$</exclude>
+				<exclude>/EIFGENs$</exclude>
 			</file_rule>
 		</cluster>
 	</target>
