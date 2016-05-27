@@ -35,7 +35,8 @@ feature{ANY} -- Basic operations
 --			else
 --				hunger := hunger - 50
 			else
-				food.health := food.health - 10
+				{ANIMAL} food as enemy
+				enemy.setHealth(enemy.getHealth - 10)
 			end
 			if (hunger < 0) then
 				hunger := 0
