@@ -10,17 +10,18 @@ class
 inherit
 	ANIMAL
 		redefine
-			eat,
-			move
+			eat
 		end
 
 create
 	make
 
 feature {NONE} -- Initialization
-	make
+	make(sock: detachable NETWORK_STREAM_SOCKET)
 		do
-			animake
+			animake(sock)
+			name:= "Badger"
+			movement_cost:= 7
 		end
 feature {ANY}
 	eat (food: FOOD)
@@ -33,22 +34,6 @@ feature {ANY}
 				end
 			else
 				hunger := hunger - 20
-			end
-		end
-
-	move ( distance : INTEGER): INTEGER
-		local
-			intermediate: REAL_64
-		do
-			if(stamina > (distance *7))then
-				intermediate := (stamina - (distance *7))
-				stamina := intermediate.floor
-				Result := distance
-			else
-				intermediate := (stamina - (stamina/7)*7)
-				stamina := intermediate.floor
-				intermediate := stamina/7
-				Result := intermediate.floor
 			end
 		end
 end
