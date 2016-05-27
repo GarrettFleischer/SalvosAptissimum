@@ -9,12 +9,12 @@ deferred class
 
 inherit
 
-	ANY
+	FOOD
 
 feature -- Access
 
 	name: STRING
-	
+
 	health: INTEGER
 
 	stamina: INTEGER
@@ -23,12 +23,25 @@ feature -- Access
 
 	attributes: LIST[ATTRIBUTES]
 
+create
+	make
 
+feature {NONE} -- Initialization
+	make
+
+		do
+			name:= ""
+			hunger := 0
+			health := 100
+			stamina := 100
+			create attributes.make(0)
+		end
 
 feature -- Actions
 
 	eat (food: FOOD)
 		do
+
 		end
 
 invariant
