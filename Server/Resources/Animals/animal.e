@@ -26,6 +26,8 @@ feature{ANIMAL} -- Access
 
 	hunger: INTEGER
 
+	movement_cost: INTEGER
+
 --	attributes: LIST[ATTRIBUTES]
 
 

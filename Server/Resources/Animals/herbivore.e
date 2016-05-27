@@ -11,8 +11,7 @@ inherit
 
 	ANIMAL
 		redefine
-			eat,
-			move
+			eat
 		end
 
 create
@@ -35,8 +34,9 @@ feature{ANY} -- Basic operations
 --			else
 --				hunger := hunger - 50
 			else
-				{ANIMAL} food as enemy
-				enemy.setHealth(enemy.getHealth - 10)
+				if (attached {ANIMAL} food as enemy) then
+					enemy.setHealth(enemy.getHealth - 10)
+				end
 			end
 			if (hunger < 0) then
 				hunger := 0
@@ -44,4 +44,6 @@ feature{ANY} -- Basic operations
 --				hunger := 100
 			end
 		end
+
+
 end

@@ -74,6 +74,8 @@ feature {NONE} -- Members
 	map_window: EV_RICH_TEXT
 			-- Map window
 
+	max_client_index: INTEGER
+	maximum_clients: INTEGER
 	client_list: ARRAYED_LIST[ANIMAL]
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -110,7 +112,7 @@ feature {NONE} -- Initialization
 				check
 					l_address_attached: l_address /= Void
 				end
-				listen_socket.listen (200)
+				listen_socket.listen (maximum_clients)
 					-- Set the accept timeout
 				listen_socket.set_accept_timeout (accept_timeout)
 
@@ -144,7 +146,9 @@ feature {NONE} -- Initialization
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
 
-			create client_list.make (200)
+			max_client_index := 0
+			maximum_clients := 100
+			create client_list.make (maximum_clients)
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
