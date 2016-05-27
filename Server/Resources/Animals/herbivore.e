@@ -22,8 +22,6 @@ feature {NONE} -- Initialization
 	make
 			-- Initialization for `Current'.
 		do
-			name := ""
-			hunger := 0
 		end
 
 feature -- Basic operations
