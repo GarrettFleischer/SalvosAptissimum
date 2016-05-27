@@ -209,6 +209,7 @@ feature {NONE} -- Server Implementation
 					log_message ("Accepted")
 
 					create client_thread.make (agent perform_client_communication (client_socket))
+					client_thread.launch
 				end
 			end
 
@@ -240,32 +241,34 @@ feature {NONE} -- Server Implementation
 			until
 				done
 			loop
-				done := receive_message_and_send_replay (socket)
+				done := receive_message_and_send_reply (socket)
 			end
-				--			log_message ("Finished processing the client, address = "+ l_peer_address.host_address.host_address + " port = " + l_peer_address.port.out + ".")
+			log_message ("Client disconnected")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	receive_message_and_send_replay (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
+	receive_message_and_send_reply (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
 		require
 			socket_attached: client_socket /= Void
 			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
 		local
 			message: detachable STRING
 		do
+			log_message ("Reading from client")
 			client_socket.read_line
 			message := client_socket.last_string
 			if message /= Void then
 				if message.ends_with ("%R") then
 					message.keep_head (message.count - 1)
 				end
-				log_message ("Client Says :")
-				log_message (message)
+				log_message ("Client Says: " + message)
 				if message.is_case_insensitive_equal ("quit") then
-					Result := True
+					send_reply (client_socket, "quit")
 					client_socket.close
+					Result := True
 				else
+						-- TODO handle other commands
 					send_reply (client_socket, message)
 				end
 			end
@@ -279,6 +282,7 @@ feature {NONE} -- Server Implementation
 			socket_valid: client_socket.is_open_write
 			message_attached: message /= Void
 		do
+			log_message ("Sending message: " + message)
 			client_socket.put_string (message + "%N")
 		end
 

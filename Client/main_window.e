@@ -80,6 +80,8 @@ feature {NONE} -- Members
 	map_window: EV_RICH_TEXT
 			-- Map window
 
+	server_socket: NETWORK_STREAM_SOCKET
+
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Initialization
@@ -113,19 +115,10 @@ feature {NONE} -- Initialization
 					log_message ("Unable to connect to host " + host + ":" + port.out)
 				else
 
-					log_message ("Launching client thread.")
-						-- Since this is the client, we will initiate the talking.
-					create client_thread.make (agent begin_communicating (l_socket))
---					send_message_and_receive_reply (l_socket, "This")
---					send_message_and_receive_reply (l_socket, "is")
---					send_message_and_receive_reply (l_socket, "a")
---					send_message_and_receive_reply (l_socket, "test")
-
-						-- Send the special string to tell server to quit.
---					send_message (l_socket, "quit")
-
-						-- Close the connection
---					l_socket.close
+					log_message ("Connected.")
+					server_socket := l_socket
+					create client_thread.make (agent perform_communication_loop )
+					client_thread.launch
 				end
 			end
 		end
@@ -151,6 +144,8 @@ feature {NONE} -- Initialization
 				-- Create a status bar and a status label.
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
+
+			create server_socket.make_empty
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -194,48 +189,41 @@ feature {NONE} -- Initialization
 
 feature {NONE} -- Client Implementation
 
-		begin_communicating (a_socket: SOCKET)
+		perform_communication_loop
 			require
-				valid_socket: a_socket /= Void and then a_socket.is_open_read and then a_socket.is_open_write
+				valid_socket: server_socket /= Void and then server_socket.is_open_read and then server_socket.is_open_write
+			local
+				done: BOOLEAN
+				l_last_string: detachable STRING
 			do
-				log_message ("BEGIN")
-				send_message_and_receive_reply (a_socket, "Hello")
-			end
-
-		send_message_and_receive_reply (a_socket: SOCKET; message: STRING)
-			require
-				valid_socket: a_socket /= Void and then a_socket.is_open_read and then a_socket.is_open_write
-				valid_message: message /= Void and then not message.is_empty
-			do
-				log_message ("sending and receiving")
-				send_message (a_socket, message)
-				receive_reply (a_socket)
+				from
+					done := false
+				until
+					done
+				loop
+					server_socket.read_line
+					l_last_string := server_socket.last_string
+					check l_last_string_attached: l_last_string /= Void end
+					if(not l_last_string.is_empty) then
+						if (l_last_string.is_equal ("quit")) then
+							done := true
+							server_socket.close
+							log_message ("Disconnected...")
+						else
+							log_message (l_last_string)
+						end
+					end
+				end
 			end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	send_message (a_socket: SOCKET; message: STRING)
+	send_message (message: STRING)
 		require
-			valid_socket: a_socket /= Void and then a_socket.is_open_write
+			valid_socket: server_socket /= Void and then server_socket.is_open_write
 			valid_message: message /= Void and then not message.is_empty
 		do
-			log_message ("Sending: " + message)
-			a_socket.put_string (message + "%N")
-		end
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	receive_reply (a_socket: SOCKET)
-		require
-			valid_socket: a_socket /= Void and then a_socket.is_open_read
-		local
-			l_last_string: detachable STRING
-		do
-			log_message ("Waiting for reply...")
-			a_socket.read_line
-			l_last_string := a_socket.last_string
-			check l_last_string_attached: l_last_string /= Void end
-			log_message ("Server Says: " + l_last_string)
+			server_socket.put_string (message + "%N")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -423,8 +411,14 @@ feature {NONE} -- Implementation
 	command_key_pressed (key: EV_KEY)
 		do
 			if key.code = {EV_KEY_CONSTANTS}.key_enter then
-				log_message (command_window.text)
-				command_window.set_text ("")
+				if (not command_window.text.is_empty) then
+					if(not server_socket.is_closed) then
+						send_message (command_window.text)
+					else
+						log_message ("Not connected...")
+					end
+					command_window.set_text ("")
+				end
 			end
 		end
 
