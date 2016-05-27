@@ -11,7 +11,8 @@ inherit
 
 	ANIMAL
 		redefine
-			eat
+			eat,
+			move
 		end
 
 create
@@ -24,15 +25,17 @@ feature {NONE} -- Initialization
 		do
 		end
 
-feature -- Basic operations
+feature{ANY} -- Basic operations
 
 	eat (food: FOOD)
 		do
 				-- Ensure that the food is a vegetable, else get sick
 			if (attached {VEGETABLE} food) then
-				hunger := hunger - 10
+				hunger := hunger - 35
 --			else
 --				hunger := hunger - 50
+			else
+				food.health := food.health - 10
 			end
 			if (hunger < 0) then
 				hunger := 0
@@ -40,5 +43,4 @@ feature -- Basic operations
 --				hunger := 100
 			end
 		end
-
 end
