@@ -30,6 +30,12 @@ inherit
 			copy
 		end
 
+	INET_ADDRESS_FACTORY
+		undefine
+			default_create,
+			copy
+		end
+
 	create
 		default_create
 
@@ -40,7 +46,7 @@ create
 
 feature {NONE} -- Constants
 
-	Window_title: STRING = "Salvos Aptissimum Server"
+	Window_title: STRING = "Salvos Aptissimum Client"
 			-- Title of the window.
 
 	Window_width: INTEGER = 1280
@@ -78,17 +84,11 @@ feature {NONE} -- Members
 
 feature {NONE} -- Initialization
 
-		--	default_create
-		--		do
-		--			Precursor {EV_TITLED_WINDOW}
-		--			make (12111, false, 0)
-		--		end
-
-	make (port: INTEGER prefer_ipv4_stack: BOOLEAN accept_timeout: INTEGER)
+	make (host: STRING port: INTEGER prefer_ipv4_stack: BOOLEAN accept_timeout: INTEGER)
 		local
-			listen_socket: NETWORK_STREAM_SOCKET
-			l_address: detachable NETWORK_SOCKET_ADDRESS
-			server_thread: WORKER_THREAD
+			l_socket: NETWORK_STREAM_SOCKET
+			l_address: detachable INET_ADDRESS
+			client_thread: WORKER_THREAD
 		do
 				-- Setup Window
 			default_create
@@ -98,26 +98,36 @@ feature {NONE} -- Initialization
 				set_ipv4_stack_preferred (True)
 			end
 
-				-- Create the Server socket
-				log_message ("Create socket")
-			create listen_socket.make_server_by_port (port)
-			if not listen_socket.is_bound then
-				log_message ("Unable bind to port " + port.out)
+			log_message ("Connecting to: " + host)
+			l_address := create_from_name (host)
+			if l_address = Void then
+				log_message ("Unknown host " + host)
 			else
-				l_address := listen_socket.address
-				check
-					l_address_attached: l_address /= Void
-				end
-				listen_socket.listen (200)
-					-- Set the accept timeout
-				listen_socket.set_accept_timeout (accept_timeout)
+					-- Create the socket connection to the Server.
+				create l_socket.make_client_by_address_and_port (l_address, port)
+					-- Set the connection timeout
+				l_socket.set_connect_timeout (accept_timeout)
+					-- Connect to the Server
+				l_socket.connect
+				if not l_socket.is_connected then
+					log_message ("Unable to connect to host " + host + ":" + port.out)
+				else
 
-					-- launch server thread
-				log_message ("Launching server thread")
-				create server_thread.make (agent perform_accept_serve_loop (listen_socket))
-				server_thread.launch
+					log_message ("Launching client thread.")
+						-- Since this is the client, we will initiate the talking.
+					create client_thread.make (agent begin_communicating (l_socket))
+--					send_message_and_receive_reply (l_socket, "This")
+--					send_message_and_receive_reply (l_socket, "is")
+--					send_message_and_receive_reply (l_socket, "a")
+--					send_message_and_receive_reply (l_socket, "test")
+
+						-- Send the special string to tell server to quit.
+--					send_message (l_socket, "quit")
+
+						-- Close the connection
+--					l_socket.close
+				end
 			end
---			listen_socket.close
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -182,104 +192,50 @@ feature {NONE} -- Initialization
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-feature {NONE} -- Server Implementation
+feature {NONE} -- Client Implementation
 
-	perform_accept_serve_loop (socket: NETWORK_STREAM_SOCKET)
-		require
-			valid_socket: socket /= Void and then socket.is_bound
-		local
-			done: BOOLEAN
-			client_socket: detachable NETWORK_STREAM_SOCKET
-			client_thread: WORKER_THREAD
-		do
-
-			from
-				done := False
-			until
-				done
-			loop
-				log_message ("Waiting...")
-				socket.accept
-				client_socket := socket.accepted
-				if client_socket = Void then
-						-- Some error occurred, perhaps because of the timeout
-						-- We probably should provide some diagnostics here
-					log_message ("accept result = Void")
-				else
-					log_message ("Accepted")
-
-					create client_thread.make (agent perform_client_communication (client_socket))
-				end
+		begin_communicating (a_socket: SOCKET)
+			require
+				valid_socket: a_socket /= Void and then a_socket.is_open_read and then a_socket.is_open_write
+			do
+				log_message ("BEGIN")
+				send_message_and_receive_reply (a_socket, "Hello")
 			end
 
-			socket.close
+		send_message_and_receive_reply (a_socket: SOCKET; message: STRING)
+			require
+				valid_socket: a_socket /= Void and then a_socket.is_open_read and then a_socket.is_open_write
+				valid_message: message /= Void and then not message.is_empty
+			do
+				log_message ("sending and receiving")
+				send_message (a_socket, message)
+				receive_reply (a_socket)
+			end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	send_message (a_socket: SOCKET; message: STRING)
+		require
+			valid_socket: a_socket /= Void and then a_socket.is_open_write
+			valid_message: message /= Void and then not message.is_empty
+		do
+			log_message ("Sending: " + message)
+			a_socket.put_string (message + "%N")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	perform_client_communication (socket: NETWORK_STREAM_SOCKET)
+	receive_reply (a_socket: SOCKET)
 		require
-			socket_attached: socket /= Void
-			socket_valid: socket.is_open_read and then socket.is_open_write
+			valid_socket: a_socket /= Void and then a_socket.is_open_read
 		local
-			done: BOOLEAN
-			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
+			l_last_string: detachable STRING
 		do
-			l_address := socket.address
-			l_peer_address := socket.peer_address
-			check
-				l_address_attached: l_address /= Void
-				l_peer_address_attached: l_peer_address /= Void
-			end
-				--			log_message ("Accepted client on the listen socket address = "+ l_address.host_address.host_address + " port = " + l_address.port.out +".")
-
-				--			log_message ("%T Accepted client address = " + l_peer_address.host_address.host_address + " , port = " + l_peer_address.port.out)
-
-			from
-				done := False
-			until
-				done
-			loop
-				done := receive_message_and_send_replay (socket)
-			end
-				--			log_message ("Finished processing the client, address = "+ l_peer_address.host_address.host_address + " port = " + l_peer_address.port.out + ".")
-		end
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	receive_message_and_send_replay (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
-		require
-			socket_attached: client_socket /= Void
-			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
-		local
-			message: detachable STRING
-		do
-			client_socket.read_line
-			message := client_socket.last_string
-			if message /= Void then
-				if message.ends_with ("%R") then
-					message.keep_head (message.count - 1)
-				end
-				log_message ("Client Says :")
-				log_message (message)
-				if message.is_case_insensitive_equal ("quit") then
-					Result := True
-					client_socket.close
-				else
-					send_reply (client_socket, message)
-				end
-			end
-		end
-
-		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	send_reply (client_socket: NETWORK_STREAM_SOCKET; message: STRING)
-		require
-			socket_attached: client_socket /= Void
-			socket_valid: client_socket.is_open_write
-			message_attached: message /= Void
-		do
-			client_socket.put_string (message + "%N")
+			log_message ("Waiting for reply...")
+			a_socket.read_line
+			l_last_string := a_socket.last_string
+			check l_last_string_attached: l_last_string /= Void end
+			log_message ("Server Says: " + l_last_string)
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

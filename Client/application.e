@@ -27,7 +27,7 @@ feature {NONE} -- Initialization
 			-- avoid to violate the invariant of class EV_APPLICATION.
 		do
 				-- create and initialize the first window.
-			create first_window.make (1211, true, 0)
+			create first_window.make ("localhost", 1211, true, 0)
 
 				-- Show the first window.
 				--| TODO: Remove this line if you don't want the first
