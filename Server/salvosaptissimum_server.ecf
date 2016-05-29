@@ -16,6 +16,9 @@
 				<exclude>/CVS$</exclude>
 				<exclude>/EIFGENs$</exclude>
 			</file_rule>
+			<file_rule>
+				<exclude>^Environment/Rooms$</exclude>
+			</file_rule>
 		</cluster>
 	</target>
 </system>

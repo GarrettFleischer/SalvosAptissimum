@@ -19,15 +19,15 @@ create
 
 feature {NONE} -- Initialization
 
-	make(sock: detachable NETWORK_STREAM_SOCKET)
+	make (sock: NETWORK_STREAM_SOCKET)
 			-- Initialization for `Current'.
 		do
-			animake(sock)
-			name:= "Rabbit"
-			movement_cost :=5
+			animake (sock)
+			name := "Rabbit"
+			movement_cost := 5
 		end
 
-feature{ANY} -- Basic operations
+feature {ANY} -- Basic operations
 
 	eat (food: FOOD)
 		do
@@ -35,12 +35,13 @@ feature{ANY} -- Basic operations
 			if (attached {VEGETABLE} food) then
 				hunger := hunger - 35
 			else
-				if(attached {ANIMAL} food as enemy) then
-					enemy.setHealth(enemy.getHealth - 10)
+				if (attached {ANIMAL} food as enemy) then
+					enemy.set_health (enemy.get_health - 10)
 				end
 			end
 			if (hunger < 0) then
 				hunger := 0
 			end
 		end
+
 end

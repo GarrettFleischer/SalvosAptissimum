@@ -343,6 +343,9 @@ feature {NONE} -- Implementation, Close event
 			question_dialog.show_modal_to_window (Current)
 			if question_dialog.selected_button ~ (create {EV_DIALOG_CONSTANTS}).ev_ok then
 					-- Destroy the window.
+				if (attached {NETWORK_STREAM_SOCKET} server_socket and then server_socket.is_open_write) then
+					send_message ("quit")
+				end
 				destroy
 
 					-- End the application.

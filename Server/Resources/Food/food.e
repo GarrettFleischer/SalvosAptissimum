@@ -11,9 +11,16 @@ inherit
 
 	ANY
 
-feature -- Access
+feature -- Members
 
 	name: STRING
+
+feature {ANY} -- Access
+
+	get_name: STRING
+		do
+			Result := name
+		end
 
 invariant
 	name_valid: not name.is_empty

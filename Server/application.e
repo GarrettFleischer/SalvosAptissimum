@@ -15,9 +15,6 @@ feature {NONE} -- Initialization
 	make_and_launch
 		local
 			l_app: EV_APPLICATION
-			r: HERBIVORE
-			F: CARNIVORE
-			B: OMNIVORE
 		do
 			create l_app
 			prepare

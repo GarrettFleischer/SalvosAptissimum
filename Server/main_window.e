@@ -30,8 +30,8 @@ inherit
 			copy
 		end
 
-	create
-		default_create
+create
+	default_create
 
 create
 	make
@@ -74,9 +74,11 @@ feature {NONE} -- Members
 	map_window: EV_RICH_TEXT
 			-- Map window
 
-	max_client_index: INTEGER
 	maximum_clients: INTEGER
-	client_list: ARRAYED_LIST[ANIMAL]
+
+	client_list: ARRAYED_LIST [ANIMAL]
+
+	map: MAP
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -103,7 +105,7 @@ feature {NONE} -- Initialization
 			end
 
 				-- Create the Server socket
-				log_message ("Create socket")
+			log_message ("Create socket")
 			create listen_socket.make_server_by_port (port)
 			if not listen_socket.is_bound then
 				log_message ("Unable bind to port " + port.out)
@@ -118,10 +120,10 @@ feature {NONE} -- Initialization
 
 					-- launch server thread
 				log_message ("Launching server thread")
-				create server_thread.make (agent perform_accept_serve_loop (listen_socket))
+				create server_thread.make (agent perform_accept_serve_loop(listen_socket))
 				server_thread.launch
 			end
---			listen_socket.close
+				--			listen_socket.close
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -145,10 +147,10 @@ feature {NONE} -- Initialization
 				-- Create a status bar and a status label.
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
-
-			max_client_index := 0
 			maximum_clients := 100
-			create client_list.make (maximum_clients)
+			create client_list.make (0)
+
+			create map.make_with_size (100, 100)
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -199,8 +201,8 @@ feature {NONE} -- Server Implementation
 			done: BOOLEAN
 			client_socket: detachable NETWORK_STREAM_SOCKET
 			client_thread: WORKER_THREAD
+			animal: ANIMAL
 		do
-
 			from
 				done := False
 			until
@@ -210,77 +212,150 @@ feature {NONE} -- Server Implementation
 				socket.accept
 				client_socket := socket.accepted
 				if client_socket = Void then
-						-- Some error occurred, perhaps because of the timeout
-						-- We probably should provide some diagnostics here
-					log_message ("accept result = Void")
+					log_message ("Error accepting client!")
 				else
 					log_message ("Accepted")
-
-					create client_thread.make (agent perform_client_communication (client_socket))
+					animal := create {HERBIVORE}.make (client_socket)
+					client_list.extend (animal)
+					map[10,10].add_animal(animal)
+					create client_thread.make (agent perform_client_communication(animal))
 					client_thread.launch
 				end
-			end
 
+				done := (client_list.count >= maximum_clients)
+			end
+			log_message ("Maximum clients reached")
 			socket.close
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	perform_client_communication (socket: NETWORK_STREAM_SOCKET)
+	perform_client_communication (animal: ANIMAL)
 		require
-			socket_attached: socket /= Void
-			socket_valid: socket.is_open_read and then socket.is_open_write
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
 		local
 			done: BOOLEAN
 			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
+			desc: STRING
 		do
-			l_address := socket.address
-			l_peer_address := socket.peer_address
+			l_address := animal.get_socket.address
+			l_peer_address := animal.get_socket.peer_address
 			check
 				l_address_attached: l_address /= Void
 				l_peer_address_attached: l_peer_address /= Void
 			end
-				--			log_message ("Accepted client on the listen socket address = "+ l_address.host_address.host_address + " port = " + l_address.port.out +".")
 
-				--			log_message ("%T Accepted client address = " + l_peer_address.host_address.host_address + " , port = " + l_peer_address.port.out)
+			send_reply (animal.get_socket, "You are a " + animal.get_name + ".")
+			send_reply (animal.get_socket, "You are standing in " + map.cell_with (animal).description)
 
 			from
 				done := False
 			until
 				done
 			loop
-				done := receive_message_and_send_reply (socket)
+				done := receive_message_and_send_reply (animal)
 			end
+			animal.get_socket.close
 			log_message ("Client disconnected")
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	receive_message_and_send_reply (client_socket: NETWORK_STREAM_SOCKET): BOOLEAN
+	receive_message_and_send_reply (animal: ANIMAL): BOOLEAN
 		require
-			socket_attached: client_socket /= Void
-			socket_valid: client_socket.is_open_read and then client_socket.is_open_write
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
 		local
 			message: detachable STRING
 		do
-			log_message ("Reading from client")
-			client_socket.read_line
-			message := client_socket.last_string
+			animal.get_socket.read_line
+			message := animal.get_socket.last_string
 			if message /= Void then
+					-- Fix line endings
 				if message.ends_with ("%R") then
 					message.keep_head (message.count - 1)
 				end
-				log_message ("Client Says: " + message)
+					-- Quit command
 				if message.is_case_insensitive_equal ("quit") then
-					send_reply (client_socket, "quit")
-					client_socket.close
+					handle_quit(animal)
 					Result := True
-				else
-						-- TODO handle other commands
-					send_reply (client_socket, message)
+
+						-- Say command
+				elseif (message.starts_with ("say ")) then
+					message.keep_tail (message.count - 4)
+					handle_say(animal, message)
+
+					-- Eat command
+				elseif (message.starts_with ("eat ")) then
+					message.keep_tail (message.count - 4)
+					handle_eat (animal, message)
+
+						-- Move commands
+				elseif (message.is_case_insensitive_equal ("n") or
+						message.is_case_insensitive_equal ("s") or
+						message.is_case_insensitive_equal ("e") or
+						message.is_case_insensitive_equal ("w")) then
+							message.to_lower
+							handle_move(animal, message[1])
 				end
 			end
 		end
+
+	handle_quit(animal: ANIMAL)
+		require
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
+		do
+			send_reply (animal.get_socket, "quit")
+			client_list.prune (animal)
+		end
+
+	handle_say(animal: ANIMAL; message: STRING)
+		require
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
+		local
+			i: INTEGER
+		do
+			from
+				i := 1
+			until
+				i = client_list.count + 1
+			loop
+				if (client_list [i].get_socket /= animal.get_socket) then
+					send_reply (client_list [i].get_socket, message)
+				else
+					send_reply (client_list [i].get_socket, "You say: " + message)
+				end
+				i := i + 1
+			end
+		end
+
+	handle_eat(animal: ANIMAL; target: STRING)
+		require
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
+		do
+
+		end
+
+	handle_move(animal: ANIMAL; direction: CHARACTER)
+		require
+			animal_attached: animal /= Void
+			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
+		do
+			if (direction.is_equal ('n')) then
+				send_reply (animal.get_socket, "moved North")
+			elseif (direction.is_equal ('s')) then
+				send_reply (animal.get_socket, "moved South")
+			elseif (direction.is_equal ('e')) then
+				send_reply (animal.get_socket, "moved East")
+			elseif (direction.is_equal ('w')) then
+				send_reply (animal.get_socket, "moved West")
+			end
+		end
+
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -290,7 +365,6 @@ feature {NONE} -- Server Implementation
 			socket_valid: client_socket.is_open_write
 			message_attached: message /= Void
 		do
-			log_message ("Sending message: " + message)
 			client_socket.put_string (message + "%N")
 		end
 
@@ -406,10 +480,20 @@ feature {NONE} -- Implementation, Close event
 			-- Process user request to close the window.
 		local
 			question_dialog: EV_CONFIRMATION_DIALOG
+			i: INTEGER
 		do
 			create question_dialog.make_with_text (Label_confirm_close_window)
 			question_dialog.show_modal_to_window (Current)
 			if question_dialog.selected_button ~ (create {EV_DIALOG_CONSTANTS}).ev_ok then
+				from
+					i := 1
+				until
+					i = client_list.count + 1
+				loop
+					send_reply (client_list[i].get_socket, "quit")
+					i := i + 1
+				end
+
 					-- Destroy the window.
 				destroy
 
@@ -486,7 +570,7 @@ feature {NONE} -- Implementation
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	log_message (msg: READABLE_STRING_GENERAL)
+	log_message (msg: STRING)
 			-- Append message to prim_log
 		require
 			log_exists: log_window /= Void
@@ -496,7 +580,7 @@ feature {NONE} -- Implementation
 			end
 			log_window.append_text (msg)
 		ensure
-			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
+			text_appended: log_window.text.ends_with (msg)
 		end
 
 end

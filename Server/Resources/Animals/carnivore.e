@@ -8,6 +8,7 @@ class
 	CARNIVORE
 
 inherit
+
 	ANIMAL
 		redefine
 			eat
@@ -15,30 +16,30 @@ inherit
 
 create
 	make
-feature {NONE}
-	make(sock: detachable NETWORK_STREAM_SOCKET)
+
+feature {NONE} -- Initialization
+
+	make (sock: NETWORK_STREAM_SOCKET)
 		do
-			animake(sock)
-			name:= "Fox"
+			animake (sock)
+			name := "Fox"
 			movement_cost := 6
 		end
 
-feature {ANY}
+feature {ANIMAL} -- Implementation
+
 	eat (food: FOOD)
 		do
 			if (attached {ANIMAL} food as meat) then
-				if (meat.getHealth > 0) then
-					meat.setHealth(meat.getHealth - 20)
+				if (meat.get_health > 0) then
+					meat.set_health (meat.get_health - 20)
 				else
 					hunger := hunger - 50
 				end
-
 			end
 			if (hunger < 0) then
 				stamina := stamina - 10
-
 			end
 		end
-	end
 
-
+end

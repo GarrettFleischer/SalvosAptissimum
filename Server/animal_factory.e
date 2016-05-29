@@ -8,28 +8,26 @@ class
 	ANIMAL_FACTORY
 
 inherit
+
 	ANY
 
 feature {NONE} -- Factory get method
 
-	make_animal (name: STRING; socket: detachable NETWORK_STREAM_SOCKET) : ANIMAL
-	require
-		name_not_empty: not name.is_empty
-	local
-		fox: CARNIVORE
-		rabbit: HERBIVORE
-		badger: OMNIVORE
-	do
---		if (name.is_case_insensitive_equal ("fox")) then
---			create fox.make (socket)
---			Result := fox
---		elseif (name.is_case_insensitive_equal ("rabbit")) then
---			create rabbit.make (socket)
---			Result := rabbit
---		else --if (name.is_case_insensitive_equal ("badger")) then
---			create badger.make (socket)
---			Result := badger
---		end
-	end
+	make_animal (name: STRING; socket: NETWORK_STREAM_SOCKET): ANIMAL
+		require
+			name_not_empty: not name.is_empty
+		local
+			animal: ANIMAL
+		do
+			if (name.is_case_insensitive_equal ("fox")) then
+				animal := create {CARNIVORE}.make (socket)
+			elseif (name.is_case_insensitive_equal ("rabbit")) then
+				animal := create {HERBIVORE}.make (socket)
+			else --if (name.is_case_insensitive_equal ("badger")) then
+				animal := create {OMNIVORE}.make (socket)
+			end
+
+			Result := animal
+		end
 
 end

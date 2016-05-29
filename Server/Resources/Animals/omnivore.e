@@ -8,6 +8,7 @@ class
 	OMNIVORE
 
 inherit
+
 	ANIMAL
 		redefine
 			eat
@@ -17,18 +18,21 @@ create
 	make
 
 feature {NONE} -- Initialization
-	make(sock: detachable NETWORK_STREAM_SOCKET)
+
+	make (sock: NETWORK_STREAM_SOCKET)
 		do
-			animake(sock)
-			name:= "Badger"
-			movement_cost:= 7
+			animake (sock)
+			name := "Badger"
+			movement_cost := 7
 		end
+
 feature {ANY}
+
 	eat (food: FOOD)
 		do
 			if (attached {ANIMAL} food as meat) then
-				if (meat.getHealth > 0) then
-					meat.sethealth(meat.getHealth -15)
+				if (meat.get_health > 0) then
+					meat.set_health (meat.get_health - 15)
 				else
 					hunger := hunger - 35
 				end
@@ -36,4 +40,5 @@ feature {ANY}
 				hunger := hunger - 20
 			end
 		end
+
 end
