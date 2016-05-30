@@ -75,10 +75,23 @@ feature {NONE} -- Members
 			-- Map window
 
 	maximum_clients: INTEGER
+			-- Value to set on the socket for the number of clients accepted
 
 	client_list: ARRAYED_LIST [ANIMAL]
 
 	map: MAP
+
+	start_time: DATE_TIME
+
+feature {NONE} -- Constants
+
+	north: INTEGER
+
+	south: INTEGER
+
+	east: INTEGER
+
+	west: INTEGER
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -94,6 +107,7 @@ feature {NONE} -- Initialization
 		local
 			listen_socket: NETWORK_STREAM_SOCKET
 			l_address: detachable NETWORK_SOCKET_ADDRESS
+			main_thread: WORKER_THREAD
 			server_thread: WORKER_THREAD
 		do
 				-- Setup Window
@@ -118,10 +132,15 @@ feature {NONE} -- Initialization
 					-- Set the accept timeout
 				listen_socket.set_accept_timeout (accept_timeout)
 
+					-- fill map
+				map.fill_random (agent cell_updated)
+
 					-- launch server thread
 				log_message ("Launching server thread")
 				create server_thread.make (agent perform_accept_serve_loop(listen_socket))
+				create main_thread.make (agent update_loop)
 				server_thread.launch
+				main_thread.launch
 			end
 				--			listen_socket.close
 		end
@@ -131,6 +150,12 @@ feature {NONE} -- Initialization
 	create_interface_objects
 			-- <Precursor>
 		do
+				-- Init constants
+			north := 1
+			south := 2
+			east := 3
+			west := 4
+
 				-- Create main container & components.
 			create main_container
 			create log_window
@@ -149,7 +174,7 @@ feature {NONE} -- Initialization
 			create standard_status_label.make_with_text ("Add your status text here...")
 			maximum_clients := 100
 			create client_list.make (0)
-
+			create start_time.make_now
 			create map.make_with_size (100, 100)
 		end
 
@@ -194,6 +219,65 @@ feature {NONE} -- Initialization
 
 feature {NONE} -- Server Implementation
 
+	update_loop
+		local
+			done: BOOLEAN
+			i: INTEGER
+			now, prev: DATE_TIME
+			delta: DATE_TIME_DURATION
+			needs_removed: like client_list
+			animal: ANIMAL
+			cell: MAP_CELL
+		do
+			create prev.make_now
+			from
+				done := False
+			until
+				done
+			loop
+				create now.make_now
+				delta := now.definite_duration (prev)
+				if (delta.fine_seconds_count > 1) then -- update once per second
+						-- Init locals
+					create prev.make_now
+					create needs_removed.make (0)
+
+						-- Perform update and determine which animals need destroyed
+					from
+						i := 1
+					until
+						i = client_list.count + 1
+					loop
+						if (client_list [i].needs_destroyed) then
+							needs_removed.extend (client_list [i])
+							if (not client_list [i].get_socket.is_closed) then
+								send_reply (client_list [i].get_socket, "quit")
+							end
+							i := client_list.count + 1
+						else
+							client_list [i].update
+							i := i + 1
+						end
+					end
+
+						-- Perform removal (to prevent invalid indexing while looping through client_list)
+					from
+						i := 1
+					until
+						i = needs_removed.count + 1
+					loop
+						animal := needs_removed [i]
+						cell := map.cell_with (animal)
+						if (cell.get_animals.has (animal)) then
+							cell.remove_animal (animal)
+						end
+						client_list.prune (animal)
+						i := i + 1
+					end
+				end
+			end
+		end
+
 	perform_accept_serve_loop (socket: NETWORK_STREAM_SOCKET)
 		require
 			valid_socket: socket /= Void and then socket.is_bound
@@ -202,26 +286,37 @@ feature {NONE} -- Server Implementation
 			client_socket: detachable NETWORK_STREAM_SOCKET
 			client_thread: WORKER_THREAD
 			animal: ANIMAL
+			rand: RANDOM
+			rand_anim: INTEGER_64
+			time: DATE_TIME
 		do
 			from
 				done := False
 			until
 				done
 			loop
-				log_message ("Waiting...")
 				socket.accept
 				client_socket := socket.accepted
 				if client_socket = Void then
 					log_message ("Error accepting client!")
 				else
-					log_message ("Accepted")
-					animal := create {HERBIVORE}.make (client_socket)
+					log_message ("Client connected.")
+					create time.make_now
+					create rand.make
+					rand.set_seed ((time.definite_duration (start_time)).seconds_count.as_integer_32)
+					rand_anim := (rand.double_i_th ((time.definite_duration (start_time)).seconds_count.as_integer_32) * 3).floor
+					if (rand_anim = 0) then
+						animal := create {HERBIVORE}.make (client_socket, agent handle_arrived)
+					elseif (rand_anim = 1) then
+						animal := create {CARNIVORE}.make (client_socket, agent handle_arrived)
+					else
+						animal := create {OMNIVORE}.make (client_socket, agent handle_arrived)
+					end
 					client_list.extend (animal)
-					map[10,10].add_animal(animal)
+					map [50, 49].add_animal (animal)
 					create client_thread.make (agent perform_client_communication(animal))
 					client_thread.launch
 				end
-
 				done := (client_list.count >= maximum_clients)
 			end
 			log_message ("Maximum clients reached")
@@ -237,7 +332,6 @@ feature {NONE} -- Server Implementation
 		local
 			done: BOOLEAN
 			l_address, l_peer_address: detachable NETWORK_SOCKET_ADDRESS
-			desc: STRING
 		do
 			l_address := animal.get_socket.address
 			l_peer_address := animal.get_socket.peer_address
@@ -245,10 +339,8 @@ feature {NONE} -- Server Implementation
 				l_address_attached: l_address /= Void
 				l_peer_address_attached: l_peer_address /= Void
 			end
-
 			send_reply (animal.get_socket, "You are a " + animal.get_name + ".")
-			send_reply (animal.get_socket, "You are standing in " + map.cell_with (animal).description)
-
+			send_reply (animal.get_socket, "You are standing in " + map.cell_with (animal).get_long)
 			from
 				done := False
 			until
@@ -256,7 +348,6 @@ feature {NONE} -- Server Implementation
 			loop
 				done := receive_message_and_send_reply (animal)
 			end
-			animal.get_socket.close
 			log_message ("Client disconnected")
 		end
 
@@ -278,40 +369,34 @@ feature {NONE} -- Server Implementation
 				end
 					-- Quit command
 				if message.is_case_insensitive_equal ("quit") then
-					handle_quit(animal)
+					animal.destroy_later
 					Result := True
 
 						-- Say command
 				elseif (message.starts_with ("say ")) then
 					message.keep_tail (message.count - 4)
-					handle_say(animal, message)
+					handle_say (animal, message)
 
-					-- Eat command
+						-- Eat command
 				elseif (message.starts_with ("eat ")) then
 					message.keep_tail (message.count - 4)
 					handle_eat (animal, message)
 
 						-- Move commands
-				elseif (message.is_case_insensitive_equal ("n") or
-						message.is_case_insensitive_equal ("s") or
-						message.is_case_insensitive_equal ("e") or
-						message.is_case_insensitive_equal ("w")) then
-							message.to_lower
-							handle_move(animal, message[1])
+				elseif (message.is_case_insensitive_equal ("n") or message.is_case_insensitive_equal ("s") or message.is_case_insensitive_equal ("e") or message.is_case_insensitive_equal ("w")) then
+					message.to_lower
+					handle_move (animal, message [1], false)
+				elseif (message.starts_with ("run ")) then
+					message.keep_tail (message.count - 4)
+					message.to_lower
+					handle_move (animal, message [1], true)
 				end
 			end
 		end
 
-	handle_quit(animal: ANIMAL)
-		require
-			animal_attached: animal /= Void
-			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
-		do
-			send_reply (animal.get_socket, "quit")
-			client_list.prune (animal)
-		end
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	handle_say(animal: ANIMAL; message: STRING)
+	handle_say (animal: ANIMAL; message: STRING)
 		require
 			animal_attached: animal /= Void
 			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
@@ -324,38 +409,122 @@ feature {NONE} -- Server Implementation
 				i = client_list.count + 1
 			loop
 				if (client_list [i].get_socket /= animal.get_socket) then
-					send_reply (client_list [i].get_socket, message)
+					send_reply (client_list [i].get_socket, "a " + client_list [i].get_name + " says, " + message)
 				else
-					send_reply (client_list [i].get_socket, "You say: " + message)
+					send_reply (client_list [i].get_socket, "you say, " + message)
 				end
 				i := i + 1
 			end
 		end
+			-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	handle_eat(animal: ANIMAL; target: STRING)
+	handle_eat (animal: ANIMAL; target: STRING)
 		require
 			animal_attached: animal /= Void
 			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
 		do
-
 		end
+			-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	handle_move(animal: ANIMAL; direction: CHARACTER)
+	handle_move (animal: ANIMAL; direction: CHARACTER; running: BOOLEAN)
 		require
 			animal_attached: animal /= Void
 			animal_valid: animal.get_socket.is_open_read and then animal.get_socket.is_open_write
+		local
+			cell: MAP_CELL
+			x, y: INTEGER_32
+			dir: INTEGER
+			dir_str: STRING
 		do
+			cell := map.cell_with (animal)
+			x := map.cell_x (cell)
+			y := map.cell_y (cell)
 			if (direction.is_equal ('n')) then
-				send_reply (animal.get_socket, "moved North")
+				y := y - 1
+				dir := north
+				dir_str := "North"
 			elseif (direction.is_equal ('s')) then
-				send_reply (animal.get_socket, "moved South")
+				y := y + 1
+				dir := south
+				dir_str := "South"
 			elseif (direction.is_equal ('e')) then
-				send_reply (animal.get_socket, "moved East")
-			elseif (direction.is_equal ('w')) then
-				send_reply (animal.get_socket, "moved West")
+				x := x + 1
+				dir := east
+				dir_str := "East"
+			else
+				x := x - 1
+				dir := west
+				dir_str := "West"
+			end
+			if ((1 <= x and x <= map.width) and (1 <= y and y <= map.height)) then
+				if (running) then
+					send_reply (animal.get_socket, "running " + dir_str + "...")
+					animal.run (cell.size, dir)
+				else
+					send_reply (animal.get_socket, "walking " + dir_str + "...")
+					animal.walk (cell.size, dir)
+				end
+			else
+				send_reply (animal.get_socket, "there appears to be an invisible wall here...")
+			end
+		end
+			-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	handle_arrived (animal: ANIMAL)
+		local
+			cell: MAP_CELL
+			x, y: INTEGER_32
+		do
+			cell := map.cell_with (animal)
+			x := map.cell_x (cell)
+			y := map.cell_y (cell)
+			if (animal.get_direction = north) then -- North
+				y := y - 1
+			elseif (animal.get_direction = south) then
+				y := y + 1
+			elseif (animal.get_direction = east) then
+				x := x + 1
+			else
+				x := x - 1
+			end
+			map [x, y].add_animal (animal)
+			cell.remove_animal (animal)
+			send_reply (animal.get_socket, "you arrive in " + map [x, y].get_long)
+			if (y > 1) then
+				send_reply (animal.get_socket, "to the North is " + map [x, y - 1].get_short)
+			end
+			if (y < map.height) then
+				send_reply (animal.get_socket, "to the South is " + map [x, y + 1].get_short)
+			end
+			if (x < map.width) then
+				send_reply (animal.get_socket, "to the East is " + map [x + 1, y].get_short)
+			end
+			if (x > 1) then
+				send_reply (animal.get_socket, "to the West is " + map [x - 1, y].get_short)
 			end
 		end
 
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+		cell_updated(cell: MAP_CELL)
+			local
+--				x, y,
+				i: INTEGER_32
+				animal: ANIMAL
+			do
+--				x := map.cell_x (cell)
+--				y := map.cell_y (cell)
+				animal := cell.get_animals.last
+
+				from
+					i := 1
+				until
+					i = cell.animals.count -- ignore last
+				loop
+					send_reply (cell.animals[i].get_socket, "a " + animal.get_name + " arrives")
+					i := i + 1
+				end
+			end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -490,7 +659,9 @@ feature {NONE} -- Implementation, Close event
 				until
 					i = client_list.count + 1
 				loop
-					send_reply (client_list[i].get_socket, "quit")
+					if (not client_list [i].get_socket.is_closed) then
+						send_reply (client_list [i].get_socket, "quit")
+					end
 					i := i + 1
 				end
 

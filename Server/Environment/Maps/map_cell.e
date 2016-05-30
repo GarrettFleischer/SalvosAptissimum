@@ -19,18 +19,25 @@ feature {ANY} -- Members
 
 	passable: BOOLEAN
 
+	size: REAL
+
 	animals: ARRAYED_LIST [ANIMAL]
+
+	update_proc: detachable PROCEDURE[MAP_CELL]
 
 feature {NONE} -- Initialization
 
-	make_with_description_and_passable (desc, short: STRING; pass: BOOLEAN)
+	make_with_description (desc, short: STRING; update: detachable like update_proc)
 		require
 			desc_not_empty: not desc.is_empty
 			short_not_empty: not short.is_empty
 		do
 			description := desc
 			short_desc := short
-			passable := pass
+			passable := true -- default to true until implemented
+
+			update_proc := update
+
 			create animals.make (0)
 		ensure
 			description_updated: description = desc
@@ -44,6 +51,9 @@ feature {ANY} -- Implementation
 			new_animal: not animals.has (animal)
 		do
 			animals.extend (animal)
+			if(attached {PROCEDURE[MAP_CELL]} update_proc as up) then
+				up.call (current)
+			end
 		ensure
 			animals_updated: animals.has (animal)
 		end
@@ -52,7 +62,7 @@ feature {ANY} -- Implementation
 		require
 			animal_contained: animals.has (animal)
 		do
-			animals.prune (animal)
+			animals.prune_all (animal)
 		ensure
 			animals_updated: not animals.has (animal)
 		end
@@ -65,13 +75,67 @@ feature {ANY} -- Getters
 		end
 
 	get_long: STRING
+		local
+			str: STRING
 		do
-			Result := description
+			str := animal_list
+			if str.count > 0 then
+				Result := description + ". There is " + animal_list + " here."
+			else
+				Result := description
+			end
 		end
 
 	get_short: STRING
+		local
+			str: STRING
 		do
-			Result := short_desc
+			str := animal_list
+			if str.count > 0 then
+				Result := short_desc + ". In it is " + animal_list
+			else
+				Result := short_desc
+			end
+		end
+
+	animal_list: STRING
+		local
+			i: INTEGER
+			str: STRING
+			nums: STRING_TABLE[INTEGER]
+		do
+			create nums.make (0)
+			str := ""
+
+			from
+				i := 1
+			until
+				i = animals.count + 1
+			loop
+				if (not nums.has_key (animals[i].get_plural)) then
+					nums.extend (1, animals[i].get_plural)
+				else
+					nums.force (nums.at (animals[i].get_plural) + 1, animals[i].get_plural)
+				end
+				i := i + 1
+			end
+
+			from
+				i := 1
+			until
+				i = nums.count + 1
+			loop
+				if(i = 1) then
+					str := nums.at (nums.current_keys[i]).out + " " + nums.current_keys[i]
+				elseif(i = nums.count) then
+					str := str + ", and " + nums.at (nums.current_keys[i]).out + " " + nums.current_keys[i]
+				else
+					str := str + ", " + nums.at (nums.current_keys[i]).out + " " + nums.current_keys[i]
+				end
+				i := i + 1
+			end
+
+			Result := str
 		end
 
 	is_passable: BOOLEAN

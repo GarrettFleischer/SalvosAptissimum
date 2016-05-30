@@ -16,12 +16,10 @@ create
 
 feature {NONE} -- Initialization
 
-	make
-		local
-			rand: RANDOM
+	make (update: detachable like update_proc)
 		do
-			create rand.make
-			make_with_description_and_passable ("a tall oak, gnarled and weary with age", "an old oak tree", true)
+			make_with_description ("a stand of trees with a tall oak, gnarled and weary with age, in the center", "an old oak tree", update)
+			size := 10
 		end
 
 end

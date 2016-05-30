@@ -16,9 +16,10 @@ create
 
 feature {NONE} -- Initialization
 
-	make
+	make (update: detachable like update_proc)
 		do
-			make_with_description_and_passable ("a grassy field with the occasional flower and bumbling bee", "a grassy field", true)
+			make_with_description ("a grassy field with the occasional flower and bumbling bee", "a grassy field", update)
+			size := 8
 		end
 
 end

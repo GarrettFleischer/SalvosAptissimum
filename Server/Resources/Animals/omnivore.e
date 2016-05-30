@@ -19,11 +19,14 @@ create
 
 feature {NONE} -- Initialization
 
-	make (sock: NETWORK_STREAM_SOCKET)
+	make (sock: NETWORK_STREAM_SOCKET; a_arrived: like arrived)
 		do
-			animake (sock)
+			animake (sock, a_arrived)
 			name := "Badger"
-			movement_cost := 7
+			plural_name := "Badgers"
+			run_speed := 3
+			walk_speed := 2
+			move_cost := 7
 		end
 
 feature {ANY}

@@ -19,12 +19,15 @@ create
 
 feature {NONE} -- Initialization
 
-	make (sock: NETWORK_STREAM_SOCKET)
+	make (sock: like socket; a_arrived: like arrived)
 			-- Initialization for `Current'.
 		do
-			animake (sock)
+			animake (sock, a_arrived)
 			name := "Rabbit"
-			movement_cost := 5
+			plural_name := "Rabbits"
+			run_speed := 5
+			walk_speed := 2
+			move_cost := 5
 		end
 
 feature {ANY} -- Basic operations

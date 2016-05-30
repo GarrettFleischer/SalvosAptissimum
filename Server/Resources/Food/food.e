@@ -15,11 +15,18 @@ feature -- Members
 
 	name: STRING
 
+	plural_name: STRING
+
 feature {ANY} -- Access
 
 	get_name: STRING
 		do
 			Result := name
+		end
+
+	get_plural: STRING
+		do
+			Result := plural_name
 		end
 
 invariant
