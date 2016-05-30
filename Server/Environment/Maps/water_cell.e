@@ -16,10 +16,10 @@ create
 
 feature {NONE} -- Initialization
 
-	make (update: detachable like update_proc)
+	make
 		do
-			make_with_description ("a pool of water with pond lillies floating in the center", "a pool of water", update)
-			size := 20
+			make_with_description ("a pool of water with pond lillies floating in the center", "a pool of water")
+			size := 35
 		end
 
 end

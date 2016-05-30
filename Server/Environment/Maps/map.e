@@ -14,47 +14,54 @@ inherit
 create
 	make_with_size
 
+feature {MAP} -- Members
+
+	mutex: MUTEX
+
 feature {NONE} -- Initialization
 
 	make_with_size (w, h: INTEGER)
 		do
-			make_filled (create {GRASS_CELL}.make(void), w, h)
+			create mutex.make
+			make_filled (create {FIELD_CELL}.make, w, h)
 		end
 
 feature -- Implementation
 
-	fill_random (update: PROCEDURE[MAP_CELL])
+	fill_random
 		local
 				rand: RANDOM
 				x, y, i: INTEGER
 				cell_type: DOUBLE
 			do
-				create rand.make
-					-- fill random
-				i := 1
-				from
-					x := 1
-				until
-					x = width
-				loop
+				mutex.lock
+					create rand.make
+						-- fill random
+					i := 1
 					from
-						y := 1
+						x := 1
 					until
-						y = height
+						x = width
 					loop
-						cell_type := rand.double_i_th (i) * 10
-						if (cell_type < 2) then
-							put (create {WATER_CELL}.make(update), x, y)
-						elseif (cell_type < 6) then
-							put (create {TREE_CELL}.make(update), x, y)
-						else
-							put (create {GRASS_CELL}.make(update), x, y)
+						from
+							y := 1
+						until
+							y = height
+						loop
+							cell_type := rand.double_i_th (i) * 10
+							if (cell_type < 2) then
+								put (create {WATER_CELL}.make, x, y)
+							elseif (cell_type < 6) then
+								put (create {FOREST_CELL}.make, x, y)
+							else
+								put (create {FIELD_CELL}.make, x, y)
+							end
+							y := y + 1
+							i := i + 1
 						end
-						y := y + 1
-						i := i + 1
+						x := x + 1
 					end
-					x := x + 1
-				end
+				mutex.unlock
 			end
 
 	cell_with (animal: ANIMAL): MAP_CELL

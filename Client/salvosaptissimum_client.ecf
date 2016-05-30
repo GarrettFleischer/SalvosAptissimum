@@ -17,5 +17,6 @@
 				<exclude>/EIFGENs$</exclude>
 			</file_rule>
 		</cluster>
+		<cluster name="common" location="..\Common" recursive="true"></cluster>
 	</target>
 </system>

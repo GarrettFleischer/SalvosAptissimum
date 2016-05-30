@@ -19,12 +19,13 @@ create
 
 feature {NONE} -- Initialization
 
-	make (sock: like socket; a_arrived: like arrived)
+	make (sock: like socket)
 			-- Initialization for `Current'.
 		do
-			animake (sock, a_arrived)
+			animake (sock)
 			name := "Rabbit"
 			plural_name := "Rabbits"
+			sound := "squeaks"
 			run_speed := 5
 			walk_speed := 2
 			move_cost := 5

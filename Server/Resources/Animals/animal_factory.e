@@ -11,7 +11,7 @@ inherit
 
 	ANY
 
-feature {NONE} -- Factory get method
+feature -- Factory get method
 
 	make_animal (name: STRING; socket: NETWORK_STREAM_SOCKET): ANIMAL
 		require

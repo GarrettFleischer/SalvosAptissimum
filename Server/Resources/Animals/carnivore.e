@@ -19,11 +19,12 @@ create
 
 feature {NONE} -- Initialization
 
-	make (sock: NETWORK_STREAM_SOCKET; a_arrived: like arrived)
+	make (sock: NETWORK_STREAM_SOCKET)
 		do
-			animake (sock, a_arrived)
+			animake (sock)
 			name := "Fox"
 			plural_name := "Foxes"
+			sound := "yips"
 			run_speed := 4
 			walk_speed := 2
 			move_cost := 6

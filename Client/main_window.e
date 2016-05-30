@@ -36,8 +36,8 @@ inherit
 			copy
 		end
 
-	create
-		default_create
+create
+	default_create
 
 create
 	make
@@ -49,10 +49,10 @@ feature {NONE} -- Constants
 	Window_title: STRING = "Salvos Aptissimum Client"
 			-- Title of the window.
 
-	Window_width: INTEGER = 1280
+	Window_width: INTEGER = 640
 			-- Initial width for this window.
 
-	Window_height: INTEGER = 720
+	Window_height: INTEGER = 480
 			-- Initial height for this window.
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -99,7 +99,6 @@ feature {NONE} -- Initialization
 			if prefer_ipv4_stack then
 				set_ipv4_stack_preferred (True)
 			end
-
 			log_message ("Connecting to: " + host)
 			l_address := create_from_name (host)
 			if l_address = Void then
@@ -114,10 +113,9 @@ feature {NONE} -- Initialization
 				if not l_socket.is_connected then
 					log_message ("Unable to connect to host " + host + ":" + port.out)
 				else
-
 					log_message ("Connected.")
 					server_socket := l_socket
-					create client_thread.make (agent perform_communication_loop )
+					create client_thread.make (agent perform_communication_loop)
 					client_thread.launch
 				end
 			end
@@ -144,7 +142,6 @@ feature {NONE} -- Initialization
 				-- Create a status bar and a status label.
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
-
 			create server_socket.make_empty
 		end
 
@@ -182,39 +179,42 @@ feature {NONE} -- Initialization
 			-- Is the window in its default state?
 			-- (as stated in `initialize')
 		do
-			Result := (width = Window_width) and then (height = Window_height) and then (title.is_equal (Window_title))
+			Result := true --(width = Window_width) and then (height = Window_height) and then (title.is_equal (Window_title))
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 feature {NONE} -- Client Implementation
 
-		perform_communication_loop
-			require
-				valid_socket: server_socket /= Void and then server_socket.is_open_read and then server_socket.is_open_write
-			local
-				done: BOOLEAN
-				l_last_string: detachable STRING
-			do
-				from
-					done := false
-				until
-					done
-				loop
-					server_socket.read_line
-					l_last_string := server_socket.last_string
-					check l_last_string_attached: l_last_string /= Void end
-					if(not l_last_string.is_empty) then
-						if (l_last_string.is_equal ("quit")) then
-							done := true
-							server_socket.close
-							log_message ("Disconnected...")
-						else
-							log_message (l_last_string)
-						end
+	perform_communication_loop
+		require
+			valid_socket: server_socket /= Void and then server_socket.is_open_read and then server_socket.is_open_write
+		local
+			done: BOOLEAN
+			l_last_string: detachable STRING
+		do
+			from
+				done := false
+			until
+				done
+			loop
+				server_socket.read_line
+				l_last_string := server_socket.last_string
+				check
+					l_last_string_attached: l_last_string /= Void
+				end
+				if (not l_last_string.is_empty) then
+					if (l_last_string.starts_with ({SERVER_COMMANDS}.quit)) then
+						done := true
+						server_socket.close
+						log_message ("Disconnected...")
+					elseif (l_last_string.starts_with ({SERVER_COMMANDS}.log)) then
+						l_last_string.keep_tail (l_last_string.count - {SERVER_COMMANDS}.log.count)
+						log_message (l_last_string)
 					end
 				end
 			end
+		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -336,24 +336,18 @@ feature {NONE} -- Implementation, Close event
 
 	request_close_window
 			-- Process user request to close the window.
-		local
-			question_dialog: EV_CONFIRMATION_DIALOG
 		do
-			create question_dialog.make_with_text (Label_confirm_close_window)
-			question_dialog.show_modal_to_window (Current)
-			if question_dialog.selected_button ~ (create {EV_DIALOG_CONSTANTS}).ev_ok then
-					-- Destroy the window.
-				if (attached {NETWORK_STREAM_SOCKET} server_socket and then server_socket.is_open_write) then
-					send_message ("quit")
-				end
-				destroy
+				-- Destroy the window.
+			if (attached {NETWORK_STREAM_SOCKET} server_socket and then server_socket.is_open_write) then
+				send_message ("quit")
+			end
+			destroy
 
-					-- End the application.
-					--| TODO: Remove next instruction if you don't want the application
-					--|       to end when the first window is closed..
-				if attached (create {EV_ENVIRONMENT}).application as a then
-					a.destroy
-				end
+				-- End the application.
+				--| TODO: Remove next instruction if you don't want the application
+				--|       to end when the first window is closed..
+			if attached (create {EV_ENVIRONMENT}).application as a then
+				a.destroy
 			end
 		end
 
@@ -415,7 +409,7 @@ feature {NONE} -- Implementation
 		do
 			if key.code = {EV_KEY_CONSTANTS}.key_enter then
 				if (not command_window.text.is_empty) then
-					if(not server_socket.is_closed) then
+					if (not server_socket.is_closed) then
 						send_message (command_window.text)
 					else
 						log_message ("Not connected...")
@@ -436,6 +430,7 @@ feature {NONE} -- Implementation
 				log_window.append_text ("%N")
 			end
 			log_window.append_text (msg)
+			log_window.scroll_to_end
 		ensure
 			text_appended: log_window.text.substring (log_window.text_length - msg.count + 1, log_window.text_length).has_substring (msg)
 		end

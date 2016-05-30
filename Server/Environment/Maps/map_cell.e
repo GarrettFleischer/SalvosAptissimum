@@ -23,11 +23,11 @@ feature {ANY} -- Members
 
 	animals: ARRAYED_LIST [ANIMAL]
 
-	update_proc: detachable PROCEDURE[MAP_CELL]
+	-- TODO add vision impairement based on terrain type
 
 feature {NONE} -- Initialization
 
-	make_with_description (desc, short: STRING; update: detachable like update_proc)
+	make_with_description (desc, short: STRING)
 		require
 			desc_not_empty: not desc.is_empty
 			short_not_empty: not short.is_empty
@@ -35,8 +35,6 @@ feature {NONE} -- Initialization
 			description := desc
 			short_desc := short
 			passable := true -- default to true until implemented
-
-			update_proc := update
 
 			create animals.make (0)
 		ensure
@@ -51,9 +49,6 @@ feature {ANY} -- Implementation
 			new_animal: not animals.has (animal)
 		do
 			animals.extend (animal)
-			if(attached {PROCEDURE[MAP_CELL]} update_proc as up) then
-				up.call (current)
-			end
 		ensure
 			animals_updated: animals.has (animal)
 		end

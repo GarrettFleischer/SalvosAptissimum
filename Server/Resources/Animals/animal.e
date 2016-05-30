@@ -31,13 +31,9 @@ feature {ANIMAL} -- Access
 
 	walk_speed: REAL
 
-	travel_dist: REAL
-
-	traveling: BOOLEAN
+	walking: BOOLEAN
 
 	running: BOOLEAN
-
-	direction: INTEGER
 
 		-- vision
 
@@ -45,9 +41,9 @@ feature {ANIMAL} -- Access
 
 	vision_angle: REAL
 
-		-- agents
+		-- speech
 
-	arrived: PROCEDURE [ANIMAL]
+	sound: STRING
 
 		-- Update loop
 	destroy: BOOLEAN
@@ -56,14 +52,13 @@ feature {ANIMAL} -- Access
 
 feature {ANIMAL} -- Initialization
 
-	animake (sock: like socket; a_arrived: like arrived)
+	animake (sock: like socket)
 		do
 			name := "Animal"
 			hunger := 0
 			health := 100
 			stamina := 100
 			socket := sock
-			arrived := a_arrived
 			destroy := false
 				--			create attributes.make(0)
 		end
@@ -90,6 +85,11 @@ feature -- Access
 			stamina := stam
 		end
 
+	get_sound: STRING
+		do
+			Result := sound
+		end
+
 	get_hunger: REAL
 		do
 			RESULT := hunger
@@ -98,11 +98,6 @@ feature -- Access
 	set_hunger (hun: REAL)
 		do
 			hunger := hun
-		end
-
-	get_direction: INTEGER
-		do
-			Result := direction
 		end
 
 	get_socket: NETWORK_STREAM_SOCKET
@@ -134,51 +129,49 @@ feature -- Implementation
 				stamina_regen := 0
 			end
 
-				-- perform movement
-			if (travel_dist > 0) then
-				if (running) then
-					if (stamina >= move_cost) then
-						stamina := stamina - move_cost
-						travel_dist := travel_dist - run_speed
-					else
-						travel_dist := travel_dist - walk_speed
-					end
-				else
-					travel_dist := travel_dist - walk_speed
-				end
-			else
-				stamina_regen := stamina_regen * 2
-			end
-
-				-- check if movement finished
-			if (travel_dist <= 0 and traveling) then
-				traveling := false
-				arrived.call (current) -- call arrived agent
-			end
-
-				-- perform recovery
+				-- Perform recovery
 			health := health + 0.001 -- 1000 updates
-			stamina := stamina + stamina_regen
+			if (not running and not walking) then
+				stamina := stamina + stamina_regen
+			end
 		end
 
-	walk (dist: REAL; dir: INTEGER)
+	walk (dist: REAL) : REAL
 		require
 			valid_dist: dist >= 0
+		local
+			travel_dist: like dist
 		do
-			traveling := true
-			travel_dist := dist
-			direction := dir
 			running := false
+			walking := true
+			travel_dist := dist - walk_speed
+			if(travel_dist <= 0) then
+				walking := false
+			end
+
+			Result := travel_dist
 		end
 
-	run (dist: REAL; dir: INTEGER)
+	run (dist: REAL): REAL
 		require
 			valid_dist: dist >= 0
+		local
+			travel_dist: like dist
 		do
-		traveling := true
-			travel_dist := dist
-			direction := dir
-			running := true
+			if (stamina >= move_cost) then
+				stamina := stamina - move_cost
+				walking := false
+				running := true
+				travel_dist := dist - run_speed
+			else
+				travel_dist := walk(dist)
+			end
+
+			if(travel_dist <= 0) then
+				walking := false
+			end
+
+			Result := travel_dist
 		end
 
 	eat (food: FOOD)
@@ -193,5 +186,5 @@ feature -- Implementation
 
 invariant
 	name_valid: not name.is_empty
-
+	walk_or_run: not (walking and running)
 end

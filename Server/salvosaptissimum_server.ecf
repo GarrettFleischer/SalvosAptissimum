@@ -17,9 +17,7 @@
 				<exclude>/CVS$</exclude>
 				<exclude>/EIFGENs$</exclude>
 			</file_rule>
-			<file_rule>
-				<exclude>^Environment/Rooms$</exclude>
-			</file_rule>
 		</cluster>
+		<cluster name="common" location="..\Common" recursive="true"></cluster>
 	</target>
 </system>
