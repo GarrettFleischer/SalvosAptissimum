@@ -33,9 +33,11 @@ feature -- Implementation
 				rand: RANDOM
 				x, y, i: INTEGER
 				cell_type: DOUBLE
+--				myrand: MYRANDOM
 			do
 				mutex.lock
 					create rand.make
+--					create myrand.make
 						-- fill random
 					i := 1
 					from

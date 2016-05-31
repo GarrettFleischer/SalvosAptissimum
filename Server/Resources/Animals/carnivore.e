@@ -27,7 +27,7 @@ feature {NONE} -- Initialization
 			sound := "yips"
 			run_speed := 4
 			walk_speed := 2
-			move_cost := 6
+			move_cost := 10
 		end
 
 feature {ANIMAL} -- Implementation

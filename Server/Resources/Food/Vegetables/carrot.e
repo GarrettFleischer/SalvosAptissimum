@@ -19,7 +19,8 @@ feature {NONE} -- Initialization
 	make
 			-- Initialization for `Current'.
 		do
-			create name.make_from_string ("Carrot")
+			name := "Carrot"
+			plural_name := "Carrots"
 		end
 
 end

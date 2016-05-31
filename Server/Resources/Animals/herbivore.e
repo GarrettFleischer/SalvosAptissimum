@@ -25,10 +25,10 @@ feature {NONE} -- Initialization
 			animake (sock)
 			name := "Rabbit"
 			plural_name := "Rabbits"
-			sound := "squeaks"
+			sound := "chirps"
 			run_speed := 5
 			walk_speed := 2
-			move_cost := 5
+			move_cost := 8
 		end
 
 feature {ANY} -- Basic operations

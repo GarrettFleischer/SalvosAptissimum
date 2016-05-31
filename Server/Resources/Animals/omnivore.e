@@ -27,7 +27,7 @@ feature {NONE} -- Initialization
 			sound := "growls"
 			run_speed := 3
 			walk_speed := 2
-			move_cost := 7
+			move_cost := 12
 		end
 
 feature {ANY}

@@ -74,28 +74,20 @@ feature {NONE} -- Members
 	map_window: EV_RICH_TEXT
 			-- Map window
 
-	maximum_clients: INTEGER
+	maximum_clients: INTEGER = 100
 			-- Value to set on the socket for the number of clients accepted
 
 	clients: ARRAYED_LIST [ANIMAL]
 
 	commands: ARRAYED_LIST [COMMAND]
 
-	mutex: MUTEX
+	send_mutex: MUTEX
+
+	log_mutex: MUTEX
 
 	map: MAP
 
 	start_time: DATE_TIME
-
-feature {NONE} -- Constants
-
-	north: INTEGER
-
-	south: INTEGER
-
-	east: INTEGER
-
-	west: INTEGER
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -153,11 +145,8 @@ feature {NONE} -- Initialization
 	create_interface_objects
 			-- <Precursor>
 		do
-				-- Init constants
-			north := 1
-			south := 2
-			east := 3
-			west := 4
+				-- Initialize start time
+			create start_time.make_now
 
 				-- Create main container & components.
 			create main_container
@@ -175,12 +164,17 @@ feature {NONE} -- Initialization
 				-- Create a status bar and a status label.
 			create standard_status_bar
 			create standard_status_label.make_with_text ("Add your status text here...")
-			maximum_clients := 100
-			create clients.make (0)
-			create start_time.make_now
+
+				-- create map
 			create map.make_with_size (100, 100)
+
+				-- create clients and commands lists
+			create clients.make (0)
 			create commands.make (0)
-			create mutex.make
+
+				-- create mutexes
+			create send_mutex.make
+			create log_mutex.make
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -227,13 +221,8 @@ feature {NONE} -- Server Implementation
 	update_loop
 		local
 			done: BOOLEAN
-			i: INTEGER
 			now, prev: DATE_TIME
 			delta: DATE_TIME_DURATION
-			needs_removed: like clients
-			animal: ANIMAL
-			cell: MAP_CELL
-			finished_commands: like commands
 		do
 			create prev.make_now
 			from
@@ -241,70 +230,102 @@ feature {NONE} -- Server Implementation
 			until
 				done
 			loop
+					-- update current time and calculate delta
 				create now.make_now
 				delta := now.definite_duration (prev)
-				if (delta.fine_seconds_count > 0.5) then -- update once per half second
-						-- Init locals
+
+					-- update once per half second
+				if (delta.fine_seconds_count > 0.5) then
+						-- update previous time
 					create prev.make_now
-					create needs_removed.make (0)
-					create finished_commands.make (0)
 
-						-- process commands
-					from
-						i := 1
-					until
-						i = commands.count + 1
-					loop
-						commands[i].execute
-						if(commands[i].is_finished) then
-							finished_commands.extend (commands[i])
-						end
-						i := i + 1
-					end
+						-- animals
+					process_animals
 
-						-- remove finished commands
-					from
-						i := 1
-					until
-						i = finished_commands.count + 1
-					loop
-						commands.prune (finished_commands[i])
-						i := i + 1
-					end
-
-						-- Perform update and determine which animals need destroyed
-					from
-						i := 1
-					until
-						i = clients.count + 1
-					loop
-						if (clients [i].needs_destroyed) then
-							needs_removed.extend (clients [i])
-							i := clients.count + 1
-						else
-							clients [i].update
-							i := i + 1
-						end
-					end
-
-						-- Perform removal (to prevent invalid indexing while looping through client_list)
-					from
-						i := 1
-					until
-						i = needs_removed.count + 1
-					loop
-						animal := needs_removed [i]
-						cell := map.cell_with (animal)
-						send_reply (animal.get_socket, {SERVER_COMMANDS}.quit, "")
-						if (cell.get_animals.has (animal)) then
-							cell.remove_animal (animal)
-						end
-						clients.prune_all (animal)
-						i := i + 1
-					end
+						-- commands
+					process_commands
 				end
 			end
 		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	process_animals
+		local
+			i: INTEGER
+			destroyed: like clients
+			animal: ANIMAL
+			cell: MAP_CELL
+		do
+				-- reset destroyed
+			create destroyed.make (0)
+
+				-- Perform update and determine which animals need destroyed
+			from
+				i := 1
+			until
+				i = clients.count + 1
+			loop
+				if (clients [i].needs_destroyed) then
+					destroyed.extend (clients [i])
+					i := clients.count + 1
+				else
+					clients [i].update
+					i := i + 1
+				end
+			end
+
+				-- Perform removal afterwards to prevent invalid indexing while looping through client_list
+			from
+				i := 1
+			until
+				i = destroyed.count + 1
+			loop
+				animal := destroyed [i]
+				cell := map.cell_with (animal)
+				send_reply (animal.get_socket, {SERVER_COMMANDS}.quit, "")
+				if (cell.get_animals.has (animal)) then
+					cell.remove_animal (animal)
+				end
+				clients.prune_all (animal)
+				i := i + 1
+			end
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	process_commands
+		local
+			i: INTEGER
+			finished_commands: like commands
+		do
+			create finished_commands.make (0)
+
+				-- execute commands and find finished
+			from
+				i := 1
+			until
+				i = commands.count + 1
+			loop
+				commands [i].execute
+				if (commands [i].is_finished) then
+					finished_commands.extend (commands [i])
+				end
+				i := i + 1
+			end
+
+				-- remove finished commands
+			from
+				i := 1
+			until
+				i = finished_commands.count + 1
+			loop
+				commands.prune_all (finished_commands [i])
+				i := i + 1
+			end
+		end
+
+		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	perform_accept_serve_loop (socket: NETWORK_STREAM_SOCKET)
 		require
@@ -329,10 +350,13 @@ feature {NONE} -- Server Implementation
 				if client_socket = Void then
 					log_message ("Error accepting client!")
 				else
+						-- Init locals
 					log_message ("Client connected.")
 					create time.make_now
 					create rand.make
 					create factory
+
+						-- Spawn random animal
 					rand.set_seed ((time.definite_duration (start_time)).seconds_count.as_integer_32)
 					rand_anim := (rand.double_i_th ((time.definite_duration (start_time)).seconds_count.as_integer_32) * 3).floor
 					if (rand_anim = 0) then
@@ -344,6 +368,8 @@ feature {NONE} -- Server Implementation
 					end
 					clients.extend (animal)
 					map [50, 49].add_animal (animal)
+
+						-- Launch client thread
 					create client_thread.make (agent perform_client_communication(animal))
 					client_thread.launch
 				end
@@ -370,7 +396,7 @@ feature {NONE} -- Server Implementation
 				l_peer_address_attached: l_peer_address /= Void
 			end
 			send_reply (animal.get_socket, {SERVER_COMMANDS}.log, "You are a " + animal.get_name + ".")
-			send_reply (animal.get_socket, {SERVER_COMMANDS}.log, "You are standing in " + map.cell_with (animal).get_long)
+			add_command (create {LOOK_COMMAND}.make (animal, map, agent send_reply))
 			from
 				done := False
 			until
@@ -412,7 +438,7 @@ feature {NONE} -- Server Implementation
 						-- Eat command
 				elseif (message.starts_with ("eat ")) then
 					message.keep_tail (message.count - 4)
-					-- TODO add eat command
+						-- TODO add eat command
 
 				elseif (message.starts_with ("look")) then
 					command := create {LOOK_COMMAND}.make (animal, map, agent send_reply)
@@ -420,14 +446,22 @@ feature {NONE} -- Server Implementation
 
 						-- Move commands
 				elseif (message.is_case_insensitive_equal ("n") or message.is_case_insensitive_equal ("s") or message.is_case_insensitive_equal ("e") or message.is_case_insensitive_equal ("w")) then
-					message.to_lower
-					command := create {MOVE_COMMAND}.make (animal, map, message[1], false, agent send_reply)
-					add_command (command)
+					if (not animal.is_moving) then -- only queue up command if animal is not moving
+						message.to_lower
+						command := create {MOVE_COMMAND}.make (animal, map, message [1], false, agent send_reply)
+						add_command (command)
+					end
 				elseif (message.starts_with ("run ")) then
-					message.keep_tail (message.count - 4)
-					message.to_lower
-					command := create {MOVE_COMMAND}.make (animal, map, message[1], true, agent send_reply)
-					add_command (command)
+					if (not animal.is_moving) then -- only queue up command if animal is not moving
+						message.keep_tail (message.count - 4)
+						message.to_lower
+						command := create {MOVE_COMMAND}.make (animal, map, message [1], true, agent send_reply)
+						add_command (command)
+					end
+
+					-- Invalid command
+				else
+					send_reply (animal.get_socket, {SERVER_COMMANDS}.log, "you attempt to %"" + message + "%" but fail miserably...")
 				end
 			end
 		end
@@ -436,9 +470,9 @@ feature {NONE} -- Server Implementation
 
 	add_command (command: COMMAND)
 		do
-			mutex.lock
-				commands.extend (command)
-			mutex.unlock
+			send_mutex.lock
+			commands.extend (command)
+			send_mutex.unlock
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -448,12 +482,12 @@ feature {NONE} -- Server Implementation
 			message_attached: message /= Void
 		do
 				-- Perform double check locking
-			if(not client_socket.is_closed and client_socket.is_open_write) then
-				mutex.lock
-					if(not client_socket.is_closed and client_socket.is_open_write) then
-						client_socket.put_string (server_command + message + "%N")
-					end
-				mutex.unlock
+			if (not client_socket.is_closed and client_socket.is_open_write) then
+				send_mutex.lock
+				if (not client_socket.is_closed and client_socket.is_open_write) then
+					client_socket.put_string ({SERVER_COMMANDS}.log + "%N" + server_command + message + "%N")
+				end
+				send_mutex.unlock
 			end
 		end
 
@@ -664,13 +698,13 @@ feature {NONE} -- Implementation
 		require
 			log_exists: log_window /= Void
 		do
---			mutex.lock
+			log_mutex.lock
 			if (not log_window.text.is_empty) then
 				log_window.append_text ("%N")
 			end
 			log_window.append_text (msg)
 			log_window.scroll_to_end
---			mutex.unlock
+			log_mutex.unlock
 		ensure
 			text_appended: log_window.text.ends_with (msg)
 		end

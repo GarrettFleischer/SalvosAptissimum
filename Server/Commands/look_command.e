@@ -40,25 +40,38 @@ feature {COMMAND} -- Inherited
 		local
 			cell: MAP_CELL
 			x, y: INTEGER
+			surroundings: STRING
 		do
-			cell := map.cell_with (animal)
-			x := map.cell_x(cell)
-			y := map.cell_y(cell)
-			send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "you see " + cell.get_long)
-			if (y > 1) then
-				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "to the North is " + map [x, y - 1].get_short)
-			end
-			if (y < map.height) then
-				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "to the South is " + map [x, y + 1].get_short)
-			end
-			if (x < map.width) then
-				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "to the East is " + map [x + 1, y].get_short)
-			end
-			if (x > 1) then
-				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "to the West is " + map [x - 1, y].get_short)
-			end
+			if (animal.needs_destroyed) then
+				finished := true
+			else
+				cell := map.cell_with (animal)
+				x := map.cell_x(cell)
+				y := map.cell_y(cell)
+				surroundings := "you see " + cell.description
+				surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+				surroundings := surroundings + "there is " + cell.animal_list + " here"
+				if (y > 1) then
+					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "to the North is " + map [x, y - 1].get_short
+				end
+				if (y < map.height) then
+					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "to the South is " + map [x, y + 1].get_short
+				end
+				if (x < map.width) then
+					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "to the East is " + map [x + 1, y].get_short
+				end
+				if (x > 1) then
+					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "to the West is " + map [x - 1, y].get_short
+				end
 
-			finished := true
+				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, surroundings)
+
+				finished := true
+			end
 		end
 
 end

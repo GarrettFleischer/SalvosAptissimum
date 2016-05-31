@@ -105,9 +105,9 @@ feature -- Access
 			result := socket
 		end
 
-	set_socket (sock: NETWORK_STREAM_SOCKET)
+	is_moving: BOOLEAN
 		do
-			socket := sock
+			Result := running or walking
 		end
 
 	needs_destroyed: BOOLEAN
@@ -121,16 +121,22 @@ feature -- Implementation
 	update
 		local
 			stamina_regen: REAL
+			health_regen: REAL
 		do
 				-- Init locals
+				stamina_regen := 0
+				health_regen := 0
+
 			if (stamina < 100) then
 				stamina_regen := 0.01 -- 100 updates
-			else
-				stamina_regen := 0
+			end
+			if (health < 100) then
+				health_regen := 0.01 -- 100 updates
 			end
 
 				-- Perform recovery
-			health := health + 0.001 -- 1000 updates
+			hunger := hunger + 0.001 -- starvation can happen...
+			health := health + health_regen
 			if (not running and not walking) then
 				stamina := stamina + stamina_regen
 			end
@@ -168,7 +174,7 @@ feature -- Implementation
 			end
 
 			if(travel_dist <= 0) then
-				walking := false
+				running := false
 			end
 
 			Result := travel_dist
