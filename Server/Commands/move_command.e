@@ -98,9 +98,9 @@ feature {COMMAND} -- Inherited
 					if (not executed) then
 						executed := true
 						if (running) then
-							send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "running " + dir_str + "...")
+							send_message.call (animal.get_socket, {SERVER_COMMAND}.log, "running " + dir_str + "...")
 						else
-							send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "walking " + dir_str + "...")
+							send_message.call (animal.get_socket, {SERVER_COMMAND}.log, "walking " + dir_str + "...")
 						end
 					end
 						-- update distance traveled
@@ -110,7 +110,7 @@ feature {COMMAND} -- Inherited
 						distance := animal.walk (distance)
 					end
 				else
-					send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, "there appears to be an invisible wall here...")
+					send_message.call (animal.get_socket, {SERVER_COMMAND}.log, "there appears to be an invisible wall here...")
 					finished := true
 				end
 
@@ -122,7 +122,7 @@ feature {COMMAND} -- Inherited
 						i = cell.animals.count + 1
 					loop
 						if (cell.animals[i] /= animal) then
-							send_message.call (cell.animals[i].get_socket, {SERVER_COMMANDS}.log, "a " + animal.get_name + " leaves to the " + dir_str)
+							send_message.call (cell.animals[i].get_socket, {SERVER_COMMAND}.log, "a " + animal.get_name + " leaves to the " + dir_str)
 						end
 						i := i + 1
 					end
@@ -135,7 +135,7 @@ feature {COMMAND} -- Inherited
 					until
 						i = cell.animals.count + 1
 					loop
-						send_message.call (cell.animals[i].get_socket, {SERVER_COMMANDS}.log, "a " + animal.get_name + " arrives from the " + op_dir_str)
+						send_message.call (cell.animals[i].get_socket, {SERVER_COMMAND}.log, "a " + animal.get_name + " arrives from the " + op_dir_str)
 						i := i + 1
 					end
 					cell.add_animal (animal)

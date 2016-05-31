@@ -49,26 +49,26 @@ feature {COMMAND} -- Inherited
 				x := map.cell_x(cell)
 				y := map.cell_y(cell)
 				surroundings := "you see " + cell.description
-				surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+				surroundings := surroundings + "%N" + {SERVER_COMMAND}.log
 				surroundings := surroundings + "there is " + cell.animal_list + " here"
 				if (y > 1) then
-					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "%N" + {SERVER_COMMAND}.log
 					surroundings := surroundings + "to the North is " + map [x, y - 1].get_short
 				end
 				if (y < map.height) then
-					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "%N" + {SERVER_COMMAND}.log
 					surroundings := surroundings + "to the South is " + map [x, y + 1].get_short
 				end
 				if (x < map.width) then
-					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "%N" + {SERVER_COMMAND}.log
 					surroundings := surroundings + "to the East is " + map [x + 1, y].get_short
 				end
 				if (x > 1) then
-					surroundings := surroundings + "%N" + {SERVER_COMMANDS}.log
+					surroundings := surroundings + "%N" + {SERVER_COMMAND}.log
 					surroundings := surroundings + "to the West is " + map [x - 1, y].get_short
 				end
 
-				send_message.call (animal.get_socket, {SERVER_COMMANDS}.log, surroundings)
+				send_message.call (animal.get_socket, {SERVER_COMMAND}.log, surroundings)
 
 				finished := true
 			end

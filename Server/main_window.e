@@ -83,9 +83,13 @@ feature {NONE} -- Members
 
 	send_mutex: MUTEX
 
+	command_mutex: MUTEX
+
 	log_mutex: MUTEX
 
 	map: MAP
+
+	running: BOOLEAN
 
 	start_time: DATE_TIME
 
@@ -174,7 +178,10 @@ feature {NONE} -- Initialization
 
 				-- create mutexes
 			create send_mutex.make
+			create command_mutex.make
 			create log_mutex.make
+
+			running := true
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -220,15 +227,15 @@ feature {NONE} -- Server Implementation
 
 	update_loop
 		local
-			done: BOOLEAN
+--			done: BOOLEAN
 			now, prev: DATE_TIME
 			delta: DATE_TIME_DURATION
 		do
 			create prev.make_now
 			from
-				done := False
+--				done := False
 			until
-				done
+				not running
 			loop
 					-- update current time and calculate delta
 				create now.make_now
@@ -283,7 +290,7 @@ feature {NONE} -- Server Implementation
 			loop
 				animal := destroyed [i]
 				cell := map.cell_with (animal)
-				send_reply (animal.get_socket, {SERVER_COMMANDS}.quit, "")
+				send_reply (animal.get_socket, {SERVER_COMMAND}.quit, "")
 				if (cell.get_animals.has (animal)) then
 					cell.remove_animal (animal)
 				end
@@ -299,6 +306,7 @@ feature {NONE} -- Server Implementation
 			i: INTEGER
 			finished_commands: like commands
 		do
+			command_mutex.lock
 			create finished_commands.make (0)
 
 				-- execute commands and find finished
@@ -323,6 +331,7 @@ feature {NONE} -- Server Implementation
 				commands.prune_all (finished_commands [i])
 				i := i + 1
 			end
+			command_mutex.unlock
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -343,7 +352,7 @@ feature {NONE} -- Server Implementation
 			from
 				done := False
 			until
-				done
+				not running or done
 			loop
 				socket.accept
 				client_socket := socket.accepted
@@ -395,12 +404,12 @@ feature {NONE} -- Server Implementation
 				l_address_attached: l_address /= Void
 				l_peer_address_attached: l_peer_address /= Void
 			end
-			send_reply (animal.get_socket, {SERVER_COMMANDS}.log, "You are a " + animal.get_name + ".")
+			send_reply (animal.get_socket, {SERVER_COMMAND}.log, "You are a " + animal.get_name + ".")
 			add_command (create {LOOK_COMMAND}.make (animal, map, agent send_reply))
 			from
 				done := False
 			until
-				done
+				not running or done
 			loop
 				done := receive_message_and_send_reply (animal)
 			end
@@ -418,50 +427,52 @@ feature {NONE} -- Server Implementation
 			command: COMMAND
 		do
 			animal.get_socket.read_line
-			message := animal.get_socket.last_string
-			if message /= Void then
-					-- Fix line endings
-				if message.ends_with ("%R") then
-					message.keep_head (message.count - 1)
-				end
-					-- Quit command
-				if message.is_case_insensitive_equal ("quit") then
-					animal.destroy_later
-					Result := True
-
-						-- Say command
-				elseif (message.starts_with ("say ")) then
-					message.keep_tail (message.count - 4)
-					command := create {SAY_COMMAND}.make (animal, map, message, agent send_reply)
-					add_command (command)
-
-						-- Eat command
-				elseif (message.starts_with ("eat ")) then
-					message.keep_tail (message.count - 4)
-						-- TODO add eat command
-
-				elseif (message.starts_with ("look")) then
-					command := create {LOOK_COMMAND}.make (animal, map, agent send_reply)
-					add_command (command)
-
-						-- Move commands
-				elseif (message.is_case_insensitive_equal ("n") or message.is_case_insensitive_equal ("s") or message.is_case_insensitive_equal ("e") or message.is_case_insensitive_equal ("w")) then
-					if (not animal.is_moving) then -- only queue up command if animal is not moving
-						message.to_lower
-						command := create {MOVE_COMMAND}.make (animal, map, message [1], false, agent send_reply)
-						add_command (command)
+			if running then
+				message := animal.get_socket.last_string
+				if message /= Void then
+						-- Fix line endings
+					if message.ends_with ("%R") then
+						message.keep_head (message.count - 1)
 					end
-				elseif (message.starts_with ("run ")) then
-					if (not animal.is_moving) then -- only queue up command if animal is not moving
+						-- Quit command
+					if message.is_case_insensitive_equal ("quit") then
+						animal.destroy_later
+						Result := True
+
+							-- Say command
+					elseif (message.starts_with ("say ")) then
 						message.keep_tail (message.count - 4)
-						message.to_lower
-						command := create {MOVE_COMMAND}.make (animal, map, message [1], true, agent send_reply)
+						command := create {SAY_COMMAND}.make (animal, map, message, agent send_reply)
 						add_command (command)
-					end
 
-					-- Invalid command
-				else
-					send_reply (animal.get_socket, {SERVER_COMMANDS}.log, "you attempt to %"" + message + "%" but fail miserably...")
+							-- Eat command
+					elseif (message.starts_with ("eat ")) then
+						message.keep_tail (message.count - 4)
+							-- TODO add eat command
+
+					elseif (message.starts_with ("look")) then
+						command := create {LOOK_COMMAND}.make (animal, map, agent send_reply)
+						add_command (command)
+
+							-- Move commands
+					elseif (message.is_case_insensitive_equal ("n") or message.is_case_insensitive_equal ("s") or message.is_case_insensitive_equal ("e") or message.is_case_insensitive_equal ("w")) then
+						if (not animal.is_moving) then -- only queue up command if animal is not moving
+							message.to_lower
+							command := create {MOVE_COMMAND}.make (animal, map, message [1], false, agent send_reply)
+							add_command (command)
+						end
+					elseif (message.starts_with ("run ")) then
+						if (not animal.is_moving) then -- only queue up command if animal is not moving
+							message.keep_tail (message.count - 4)
+							message.to_lower
+							command := create {MOVE_COMMAND}.make (animal, map, message [1], true, agent send_reply)
+							add_command (command)
+						end
+
+						-- Invalid command
+					else
+						send_reply (animal.get_socket, {SERVER_COMMAND}.log, "you attempt to %"" + message + "%" but fail miserably...")
+					end
 				end
 			end
 		end
@@ -470,9 +481,9 @@ feature {NONE} -- Server Implementation
 
 	add_command (command: COMMAND)
 		do
-			send_mutex.lock
+			command_mutex.lock
 			commands.extend (command)
-			send_mutex.unlock
+			command_mutex.unlock
 		end
 
 		-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -485,7 +496,7 @@ feature {NONE} -- Server Implementation
 			if (not client_socket.is_closed and client_socket.is_open_write) then
 				send_mutex.lock
 				if (not client_socket.is_closed and client_socket.is_open_write) then
-					client_socket.put_string ({SERVER_COMMANDS}.log + "%N" + server_command + message + "%N")
+					client_socket.put_string ({SERVER_COMMAND}.log + "%N" + server_command + message + "%N")
 				end
 				send_mutex.unlock
 			end
@@ -608,12 +619,14 @@ feature {NONE} -- Implementation, Close event
 			create question_dialog.make_with_text (Label_confirm_close_window)
 			question_dialog.show_modal_to_window (Current)
 			if question_dialog.selected_button ~ (create {EV_DIALOG_CONSTANTS}).ev_ok then
+				running := false
+--				sleep (3000)
 				from
 					i := 1
 				until
 					i = clients.count + 1
 				loop
-					send_reply (clients [i].get_socket, {SERVER_COMMANDS}.quit, "")
+					send_reply (clients [i].get_socket, {SERVER_COMMAND}.quit, "")
 					i := i + 1
 				end
 

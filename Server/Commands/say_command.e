@@ -57,12 +57,12 @@ feature {COMMAND} -- Inherited
 				loop
 					if (cell.animals [i].get_socket /= animal.get_socket) then
 						if (cell.animals [i].get_name.is_equal (animal.get_name)) then
-							send_message.call (cell.animals [i].get_socket, {SERVER_COMMANDS}.log, "a " + animal.get_name + " says, " + message)
+							send_message.call (cell.animals [i].get_socket, {SERVER_COMMAND}.log, "a " + animal.get_name + " says, " + message)
 						else
-							send_message.call (cell.animals [i].get_socket, {SERVER_COMMANDS}.log, "a " + animal.get_name + " " + animal.get_sound)
+							send_message.call (cell.animals [i].get_socket, {SERVER_COMMAND}.log, "a " + animal.get_name + " " + animal.get_sound)
 						end
 					else
-						send_message.call (cell.animals [i].get_socket, {SERVER_COMMANDS}.log, "you say, " + message)
+						send_message.call (cell.animals [i].get_socket, {SERVER_COMMAND}.log, "you say, " + message)
 					end
 					i := i + 1
 				end
